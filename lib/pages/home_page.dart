@@ -139,7 +139,9 @@ class HomePage extends StatelessWidget {
                       HomePageWideActionButton(
                         label: 'Configurações',
                         icon: Icons.settings,
-                        onPressed: () => {},
+                        onPressed: () => {
+                          Navigator.of(context).pushNamed('/settings'),
+                        },
                       ),
                     ],
                   ],

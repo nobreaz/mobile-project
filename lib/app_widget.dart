@@ -4,6 +4,7 @@ import 'package:project/pages/home_page.dart';
 import 'package:project/pages/login_page.dart';
 import 'package:project/pages/new_request_page.dart';
 import 'package:project/pages/reset_password_page.dart';
+import 'package:project/pages/settings_page.dart';
 
 class AppWidget extends StatelessWidget {
   const AppWidget({super.key});
@@ -26,6 +27,7 @@ class AppWidget extends StatelessWidget {
             '/reset-password': (context) => ResetPasswordPage(),
             '/home': (context) => HomePage(),
             '/new-request': (context) => const NewRequestPage(),
+            '/settings': (context) => const SettingsPage(),
           },
         );
       },
