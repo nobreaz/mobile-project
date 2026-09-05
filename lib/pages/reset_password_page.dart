@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:project/core/components/app_button.dart';
+import 'package:project/core/components/app_button_variant.dart';
 import 'package:project/core/components/auth_background.dart';
 import 'package:project/core/components/auth_text_field.dart';
 import 'package:project/core/theme/app_text_styles.dart';
@@ -50,6 +50,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                   ),
                   SizedBox(height: 10),
                   AppButton(
+                    variant: AppButtonVariant.cancel,
                     label: 'Voltar',
                     onPressed: () {
                       Navigator.of(context).pushReplacementNamed('/');

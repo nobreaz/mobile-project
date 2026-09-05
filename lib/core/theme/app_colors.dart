@@ -8,4 +8,5 @@ class AppColors {
   static const iconMuted = Color(0xFFB5B5B5);
   static const textMuted = Color(0xFF96989A);
   static const shadow = Color(0x3F000000);
+  static const placeholder = Color(0x707E8589);
 }

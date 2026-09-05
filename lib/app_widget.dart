@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:project/app_controller.dart';
 import 'package:project/pages/home_page.dart';
 import 'package:project/pages/login_page.dart';
+import 'package:project/pages/new_request_page.dart';
 import 'package:project/pages/reset_password_page.dart';
 
 class AppWidget extends StatelessWidget {
@@ -24,6 +25,7 @@ class AppWidget extends StatelessWidget {
             '/': (context) => LoginPage(),
             '/reset-password': (context) => ResetPasswordPage(),
             '/home': (context) => HomePage(),
+            '/new-request': (context) => const NewRequestPage(),
           },
         );
       },

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:project/core/components/app_button_variant.dart';
 
 import '../../../core/components/app_logo.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/components/auth_background.dart';
 import '../../../core/components/auth_text_field.dart';
-import '../../../core/components/app_button.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -54,6 +54,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 20),
                   AppButton(
+                    variant: AppButtonVariant.login,
                     label: 'Entrar',
                     onPressed: () =>
                         Navigator.of(context).pushReplacementNamed('/home'),

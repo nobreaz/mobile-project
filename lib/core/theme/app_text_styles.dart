@@ -43,7 +43,7 @@ class AppTextStyles {
 
   static const actionLabel = TextStyle(
     color: AppColors.primary,
-    fontSize: 13,
+    fontSize: 16,
     fontFamily: fontFamily,
     fontWeight: FontWeight.w700,
   );

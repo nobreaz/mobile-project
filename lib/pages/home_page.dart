@@ -23,14 +23,17 @@ class HomePage extends StatelessWidget {
   final TipoUsuario tipoUsuario;
 
   // const HomePage({super.key, required this.tipoUsuario}); - Mudar quando for implementar autenticação
-  const HomePage({super.key, this.tipoUsuario = TipoUsuario.approver}); // Mudar quando for implementar autenticação
+  const HomePage({
+    super.key,
+    this.tipoUsuario = TipoUsuario.approver,
+  }); // Mudar quando for implementar autenticação
 
   List<HomePageAction> _gridActions(BuildContext context) {
     final actions = <HomePageAction>[
       HomePageAction(
         label: 'Nova Solicitação',
         icon: Icons.add_circle_outline,
-        onPressed: () {},
+        onPressed: () => Navigator.of(context).pushNamed('/new-request'),
       ),
       HomePageAction(
         label: 'Minhas Solicitações',
@@ -136,8 +139,7 @@ class HomePage extends StatelessWidget {
                       HomePageWideActionButton(
                         label: 'Configurações',
                         icon: Icons.settings,
-                        onPressed: () =>
-                            Navigator.of(context).pushNamed('/settings'),
+                        onPressed: () => {},
                       ),
                     ],
                   ],
