@@ -91,13 +91,23 @@ class _SettingsPageState extends State<SettingsPage> {
                               AppButton(
                                 label: 'Alterar Senha',
                                 variant: AppButtonVariant.settings,
-                                onPressed: () {},
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/change-password',
+                                  );
+                                },
                               ),
                               const SizedBox(height: 20),
                               AppButton(
                                 label: 'Notificações',
                                 variant: AppButtonVariant.settings,
-                                onPressed: () {},
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/notifications',
+                                  );
+                                },
                               ),
                               const SizedBox(height: 20),
                               AppButton(

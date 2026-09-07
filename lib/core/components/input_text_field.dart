@@ -4,7 +4,7 @@ import 'package:project/core/theme/app_text_styles.dart';
 
 import '../theme/app_colors.dart' show AppColors;
 
-enum InputFieldType { text, number, date, dateTime }
+enum InputFieldType { text, number, date, dateTime, password }
 
 class InputTextField extends StatefulWidget {
   final String label;
@@ -38,6 +38,7 @@ class InputTextField extends StatefulWidget {
 
 class _InputTextFieldState extends State<InputTextField> {
   late final TextEditingController _controller;
+  bool _obscureText = true;
 
   @override
   void initState() {
@@ -62,10 +63,8 @@ class _InputTextFieldState extends State<InputTextField> {
   Future<void> _handleTap() async {
     final now = DateTime.now();
     final effectiveFirstDate = widget.firstDate ?? now;
-    // se firstDate for no futuro, o initialDate "pulará" pra lá também
-    final initialDate = effectiveFirstDate.isAfter(now)
-        ? effectiveFirstDate
-        : now;
+    final initialDate =
+        effectiveFirstDate.isAfter(now) ? effectiveFirstDate : now;
 
     if (widget.type == InputFieldType.date) {
       final picked = await showDatePicker(
@@ -117,6 +116,7 @@ class _InputTextFieldState extends State<InputTextField> {
     final isPickerField =
         widget.type == InputFieldType.date ||
         widget.type == InputFieldType.dateTime;
+    final isPasswordField = widget.type == InputFieldType.password;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
@@ -145,6 +145,7 @@ class _InputTextFieldState extends State<InputTextField> {
           ),
           child: TextField(
             controller: _controller,
+            obscureText: isPasswordField ? _obscureText : false,
             readOnly: isPickerField,
             onTap: isPickerField ? _handleTap : null,
             onChanged: isPickerField ? null : widget.onChanged,
@@ -166,6 +167,15 @@ class _InputTextFieldState extends State<InputTextField> {
                   ? const Icon(Icons.calendar_today, color: AppColors.iconMuted)
                   : widget.type == InputFieldType.dateTime
                   ? const Icon(Icons.event, color: AppColors.iconMuted)
+                  : isPasswordField
+                  ? IconButton(
+                      icon: Icon(
+                        _obscureText ? Icons.visibility : Icons.visibility_off,
+                        color: AppColors.iconMuted,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscureText = !_obscureText),
+                    )
                   : null,
             ),
           ),

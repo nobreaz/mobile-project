@@ -9,4 +9,7 @@ class AppColors {
   static const textMuted = Color(0xFF96989A);
   static const shadow = Color(0x3F000000);
   static const placeholder = Color(0x707E8589);
+  static const approved = Color(0xFF6CCB50);
+  static const rejected = Color(0xFFF44336);
+  static const canceled = Color(0xFFFFC107);
 }
