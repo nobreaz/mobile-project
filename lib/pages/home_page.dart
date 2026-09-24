@@ -38,7 +38,7 @@ class HomePage extends StatelessWidget {
       HomePageAction(
         label: 'Minhas Solicitações',
         icon: Icons.list_alt,
-        onPressed: () {},
+        onPressed: () => Navigator.of(context).pushNamed('/my-requests'),
       ),
       HomePageAction(
         label: 'Agenda',
@@ -57,12 +57,12 @@ class HomePage extends StatelessWidget {
         HomePageAction(
           label: 'Gestão de Veículos',
           icon: Icons.directions_car,
-          onPressed: () {},
+          onPressed: () => Navigator.of(context).pushNamed('/vehicles'),
         ),
         HomePageAction(
           label: 'Solicitações Pendentes',
           icon: Icons.pending_actions,
-          onPressed: () {},
+          onPressed: () => Navigator.of(context).pushNamed('/pending-requests'),
         ),
       ]);
     } else {
