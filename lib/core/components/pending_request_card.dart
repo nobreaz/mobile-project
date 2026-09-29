@@ -25,6 +25,14 @@ class PendingRequestCard extends StatelessWidget {
   String _fmtDate(DateTime? d) =>
       d == null ? '—' : '${_pad(d.day)}/${_pad(d.month)}/${d.year}';
 
+  /// Ex.: "10/10/2026 · Manhã (até 12h)".
+  String _fmtReturn() {
+    final period = request.returnPeriod;
+    final date = _fmtDate(request.returnDate);
+    if (period == null) return date;
+    return '$date · ${period.label} (${period.description})';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -98,7 +106,7 @@ class PendingRequestCard extends StatelessWidget {
           const SizedBox(height: 6),
           _detail('Saída', _fmtDateTime(request.departure)),
           const SizedBox(height: 6),
-          _detail('Retorno', _fmtDate(request.returnDate)),
+          _detail('Retorno', _fmtReturn()),
 
           const SizedBox(height: 16),
           Row(

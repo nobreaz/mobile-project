@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:project/core/components/app_button_variant.dart';
 import 'package:project/core/components/input_text_field.dart';
 import 'package:project/core/controllers/request_controller.dart';
+import 'package:project/core/models/request_model.dart';
 import 'package:project/core/theme/app_colors.dart';
+import 'package:project/core/theme/app_text_styles.dart';
 
 class NewRequestPage extends StatefulWidget {
   const NewRequestPage({super.key});
@@ -18,6 +20,7 @@ class _NewRequestPageState extends State<NewRequestPage> {
   int numberPassengers = 0;
   DateTime? departureDateTime;
   DateTime? returnDate;
+  ReturnPeriod? returnPeriod;
 
   // Trocar a "versão" do formulário força os campos a se recriarem vazios.
   int _formVersion = 0;
@@ -29,6 +32,7 @@ class _NewRequestPageState extends State<NewRequestPage> {
       numberPassengers = 0;
       departureDateTime = null;
       returnDate = null;
+      returnPeriod = null;
       _formVersion++;
     });
   }
@@ -43,6 +47,26 @@ class _NewRequestPageState extends State<NewRequestPage> {
       _showMessage('Selecione as datas de saída e de retorno.');
       return;
     }
+    if (returnPeriod == null) {
+      _showMessage('Selecione o período de retorno (manhã ou tarde).');
+      return;
+    }
+
+    // O prazo de devolução precisa ser depois da saída.
+    // Ex.: sair hoje às 14h e voltar hoje de manhã (até 12h) é inválido.
+    final deadline = DateTime(
+      returnDate!.year,
+      returnDate!.month,
+      returnDate!.day,
+      returnPeriod!.endHour,
+    );
+    if (!deadline.isAfter(departureDateTime!)) {
+      _showMessage(
+        'O retorno precisa ser depois da saída. '
+        'Verifique a data e o período de retorno.',
+      );
+      return;
+    }
 
     // Cria a solicitação (cai automaticamente em "Minhas Solicitações").
     RequestController.instance.addRequest(
@@ -51,6 +75,7 @@ class _NewRequestPageState extends State<NewRequestPage> {
       passengers: numberPassengers,
       departure: departureDateTime,
       returnDate: returnDate,
+      returnPeriod: returnPeriod,
     );
 
     _showMessage('Solicitação enviada com sucesso!');
@@ -135,6 +160,8 @@ class _NewRequestPageState extends State<NewRequestPage> {
                           onDateSelected: (date) =>
                               setState(() => returnDate = date),
                         ),
+                        const SizedBox(height: 20),
+                        _periodSelector(),
                         const Spacer(),
                         const SizedBox(height: 40),
                         Center(
@@ -158,6 +185,91 @@ class _NewRequestPageState extends State<NewRequestPage> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  /// Seletor de período de retorno (Manhã / Tarde), com o mesmo
+  /// visual dos demais campos do formulário.
+  Widget _periodSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 10),
+        const Padding(
+          padding: EdgeInsets.only(left: 8),
+          child: Text('Período de retorno', style: AppTextStyles.actionLabel),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: Row(
+            children: [
+              Expanded(
+                child: _periodOption(
+                  ReturnPeriod.manha,
+                  Icons.wb_sunny_outlined,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _periodOption(
+                  ReturnPeriod.tarde,
+                  Icons.wb_twilight,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _periodOption(ReturnPeriod period, IconData icon) {
+    final selected = returnPeriod == period;
+
+    return GestureDetector(
+      onTap: () => setState(() => returnPeriod = period),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: ShapeDecoration(
+          color: selected ? AppColors.primary : AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          shadows: const [
+            BoxShadow(
+              color: AppColors.shadow,
+              blurRadius: 4,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: selected ? Colors.white : AppColors.primary,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              period.label,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: selected ? Colors.white : AppColors.primary,
+              ),
+            ),
+            Text(
+              period.description,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.white70 : AppColors.textMuted,
+              ),
+            ),
+          ],
         ),
       ),
     );
