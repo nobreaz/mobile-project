@@ -28,6 +28,14 @@ class RequestCard extends StatelessWidget {
   String _fmtDate(DateTime? d) =>
       d == null ? '—' : '${_pad(d.day)}/${_pad(d.month)}/${d.year}';
 
+  /// Ex.: "10/10/2026 · Manhã (até 12h)".
+  String _fmtReturn() {
+    final period = request.returnPeriod;
+    final date = _fmtDate(request.returnDate);
+    if (period == null) return date;
+    return '$date · ${period.label} (${period.description})';
+  }
+
   @override
   Widget build(BuildContext context) {
     final vehicle = RequestController.instance.vehicleOf(request);
@@ -100,10 +108,7 @@ class RequestCard extends StatelessWidget {
           const SizedBox(height: 4),
           _infoRow(Icons.event, 'Saída: ${_fmtDateTime(request.departure)}'),
           const SizedBox(height: 4),
-          _infoRow(
-            Icons.calendar_today,
-            'Retorno: ${_fmtDate(request.returnDate)}',
-          ),
+          _infoRow(Icons.calendar_today, 'Retorno: ${_fmtReturn()}'),
 
           // Alerta de atraso (retirada ou devolução fora do prazo)
           if (isLate) ...[
@@ -113,7 +118,7 @@ class RequestCard extends StatelessWidget {
               icon: Icons.schedule,
               text: request.isCheckOutLate
                   ? 'A data de saída já passou e o veículo não foi retirado.'
-                  : 'A data de retorno já passou e o veículo não foi devolvido.',
+                  : 'O prazo de retorno já passou e o veículo não foi devolvido.',
             ),
           ],
 
