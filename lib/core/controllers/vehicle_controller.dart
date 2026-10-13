@@ -98,9 +98,7 @@ class VehicleController extends ChangeNotifier {
   }
 
   /// Altera apenas o status operacional de um veículo.
-  ///
-  /// Usado quando uma solicitação é aprovada (o veículo passa a
-  /// "Em uso") ou quando ele é liberado de volta para a frota.
+  /// Usado no check-out (→ Em uso) e no check-in (→ Disponível).
   void updateStatus(int id, VehicleStatus status) {
     final vehicle = _vehicles.firstWhere((v) => v.id == id);
     vehicle.status = status;

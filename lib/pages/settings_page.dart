@@ -98,7 +98,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   );
                                 },
                               ),
-                              const SizedBox(height: 20),
+                              /*const SizedBox(height: 20),
                               AppButton(
                                 label: 'Notificações',
                                 variant: AppButtonVariant.settings,
@@ -108,7 +108,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                     '/notifications',
                                   );
                                 },
-                              ),
+                              )*/
                               const SizedBox(height: 20),
                               AppButton(
                                 label: 'Meus dados',

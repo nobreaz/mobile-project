@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:project/core/components/app_button_variant.dart';
 import 'package:project/core/components/input_text_field.dart';
 import 'package:project/core/controllers/request_controller.dart';
+import 'package:project/core/controllers/vehicle_controller.dart';
 import 'package:project/core/models/request_model.dart';
+import 'package:project/core/models/vehicle_model.dart';
 import 'package:project/core/theme/app_colors.dart';
 import 'package:project/core/theme/app_text_styles.dart';
 
@@ -17,7 +19,7 @@ class NewRequestPage extends StatefulWidget {
 class _NewRequestPageState extends State<NewRequestPage> {
   String reasonTravel = '';
   String destination = '';
-  int numberPassengers = 0;
+  int numberPassengers = 1; // o motorista conta como passageiro
   DateTime? departureDateTime;
   DateTime? returnDate;
   ReturnPeriod? returnPeriod;
@@ -25,11 +27,25 @@ class _NewRequestPageState extends State<NewRequestPage> {
   // Trocar a "versão" do formulário força os campos a se recriarem vazios.
   int _formVersion = 0;
 
+  /// Limite do seletor: a maior lotação entre os veículos ativos.
+  /// Evita pedir uma viagem que nenhum carro da frota consegue atender.
+  int get _maxPassengers {
+    final seats = VehicleController.instance.vehicles
+        .where(
+          (v) =>
+              v.status != VehicleStatus.emManutencao &&
+              v.status != VehicleStatus.inativo,
+        )
+        .map((v) => v.seats);
+    if (seats.isEmpty) return 1;
+    return seats.reduce((a, b) => a > b ? a : b);
+  }
+
   void _clearForm() {
     setState(() {
       reasonTravel = '';
       destination = '';
-      numberPassengers = 0;
+      numberPassengers = 1;
       departureDateTime = null;
       returnDate = null;
       returnPeriod = null;
@@ -83,9 +99,7 @@ class _NewRequestPageState extends State<NewRequestPage> {
   }
 
   void _showMessage(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
   @override
@@ -130,14 +144,7 @@ class _NewRequestPageState extends State<NewRequestPage> {
                               setState(() => destination = text),
                         ),
                         const SizedBox(height: 20),
-                        InputTextField(
-                          label: 'Número de passageiros',
-                          type: InputFieldType.number,
-                          inputText: '',
-                          hint: 'Informe a quantidade de passageiros',
-                          onChanged: (text) =>
-                              numberPassengers = int.tryParse(text) ?? 0,
-                        ),
+                        _passengerStepper(),
                         const SizedBox(height: 20),
                         InputTextField(
                           label: 'Data e hora de saída',
@@ -190,6 +197,118 @@ class _NewRequestPageState extends State<NewRequestPage> {
     );
   }
 
+  /// Seletor de passageiros com botões – e +, sem digitação.
+  Widget _passengerStepper() {
+    final max = _maxPassengers;
+    // Se a frota mudou e o valor ficou acima do limite, ajusta.
+    if (numberPassengers > max) numberPassengers = max;
+
+    final canDecrease = numberPassengers > 1;
+    final canIncrease = numberPassengers < max;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 10),
+        const Padding(
+          padding: EdgeInsets.only(left: 8),
+          child: Text(
+            'Número de passageiros',
+            style: AppTextStyles.actionLabel,
+          ),
+        ),
+        Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: ShapeDecoration(
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            shadows: const [
+              BoxShadow(
+                color: AppColors.shadow,
+                blurRadius: 4,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              _stepButton(
+                icon: Icons.remove,
+                enabled: canDecrease,
+                onTap: () => setState(() => numberPassengers--),
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      '$numberPassengers',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    Text(
+                      numberPassengers == 1 ? 'passageiro' : 'passageiros',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _stepButton(
+                icon: Icons.add,
+                enabled: canIncrease,
+                onTap: () => setState(() => numberPassengers++),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 8, top: 6),
+          child: Text(
+            'Inclui o motorista · máximo de $max',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _stepButton({
+    required IconData icon,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: enabled ? AppColors.primary : AppColors.background,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: enabled ? onTap : null,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(
+            icon,
+            size: 22,
+            color: enabled ? Colors.white : AppColors.iconMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Seletor de período de retorno (Manhã / Tarde), com o mesmo
   /// visual dos demais campos do formulário.
   Widget _periodSelector() {
@@ -214,10 +333,7 @@ class _NewRequestPageState extends State<NewRequestPage> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _periodOption(
-                  ReturnPeriod.tarde,
-                  Icons.wb_twilight,
-                ),
+                child: _periodOption(ReturnPeriod.tarde, Icons.wb_twilight),
               ),
             ],
           ),
@@ -249,10 +365,7 @@ class _NewRequestPageState extends State<NewRequestPage> {
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: selected ? Colors.white : AppColors.primary,
-            ),
+            Icon(icon, color: selected ? Colors.white : AppColors.primary),
             const SizedBox(height: 4),
             Text(
               period.label,

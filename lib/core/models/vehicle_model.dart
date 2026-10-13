@@ -4,25 +4,19 @@ import 'package:project/core/theme/app_colors.dart';
 /// Status operacional do veículo.
 /// (Requisito 3.2.5 e entidade "Veículo" — item 5.1.3 do documento.)
 ///
+/// O status reflete apenas o que está acontecendo AGORA com o veículo.
+/// Reservas futuras não alteram o status: elas ficam na agenda
+/// (solicitações aprovadas) e são verificadas na hora de alocar.
+///
 /// Ciclo típico:
-/// Disponível → Reservado (solicitação aprovada)
-///            → Em uso (check-out realizado)
-///            → Disponível (devolução / check-in)
-enum VehicleStatus {
-  disponivel,
-  reservado,
-  emUso,
-  emManutencao,
-  inativo,
-}
+/// Disponível → Em uso (check-out) → Disponível (check-in)
+enum VehicleStatus { disponivel, emUso, emManutencao, inativo }
 
 extension VehicleStatusX on VehicleStatus {
   String get label {
     switch (this) {
       case VehicleStatus.disponivel:
         return 'Disponível';
-      case VehicleStatus.reservado:
-        return 'Reservado';
       case VehicleStatus.emUso:
         return 'Em uso';
       case VehicleStatus.emManutencao:
@@ -36,8 +30,6 @@ extension VehicleStatusX on VehicleStatus {
     switch (this) {
       case VehicleStatus.disponivel:
         return AppColors.approved;
-      case VehicleStatus.reservado:
-        return AppColors.primaryDark;
       case VehicleStatus.emUso:
         return AppColors.primary;
       case VehicleStatus.emManutencao:

@@ -11,11 +11,13 @@ class HomePageAction {
   final String label;
   final IconData icon;
   final VoidCallback onPressed;
+  final bool comingSoon;
 
   const HomePageAction({
     required this.label,
     required this.icon,
     required this.onPressed,
+    this.comingSoon = false,
   });
 }
 
@@ -43,7 +45,7 @@ class HomePage extends StatelessWidget {
       HomePageAction(
         label: 'Agenda',
         icon: Icons.calendar_month,
-        onPressed: () {},
+        onPressed: () => Navigator.of(context).pushNamed('/agenda'),
       ),
     ];
 
@@ -53,6 +55,7 @@ class HomePage extends StatelessWidget {
           label: 'Ver Relatórios',
           icon: Icons.bar_chart,
           onPressed: () {},
+          comingSoon: true,
         ),
         HomePageAction(
           label: 'Gestão de Veículos',
@@ -130,6 +133,7 @@ class HomePage extends StatelessWidget {
                             label: action.label,
                             icon: action.icon,
                             onPressed: action.onPressed,
+                            comingSoon: action.comingSoon,
                           );
                         },
                       ),
