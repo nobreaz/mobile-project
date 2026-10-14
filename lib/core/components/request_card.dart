@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:project/core/controllers/request_controller.dart';
 import 'package:project/core/models/request_model.dart';
-import 'package:project/core/models/vehicle_model.dart';
 import 'package:project/core/theme/app_colors.dart';
+import 'package:project/core/models/vehicle_model.dart';
 
-/// Card que exibe uma solicitação na tela "Minhas Solicitações".
+/// Card de uma solicitação. Sem callbacks, funciona só como leitura
+/// (usado também no histórico da Gestão de Usuários).
 class RequestCard extends StatelessWidget {
   final RequestModel request;
   final VoidCallback? onCancel;
+  final VoidCallback? onEdit;
   final VoidCallback? onCheckOut;
   final VoidCallback? onCheckIn;
 
@@ -15,6 +17,7 @@ class RequestCard extends StatelessWidget {
     super.key,
     required this.request,
     this.onCancel,
+    this.onEdit,
     this.onCheckOut,
     this.onCheckIn,
   });
@@ -28,7 +31,6 @@ class RequestCard extends StatelessWidget {
   String _fmtDate(DateTime? d) =>
       d == null ? '—' : '${_pad(d.day)}/${_pad(d.month)}/${d.year}';
 
-  /// Ex.: "10/10/2026 · Manhã (até 12h)".
   String _fmtReturn() {
     final period = request.returnPeriod;
     final date = _fmtDate(request.returnDate);
@@ -57,7 +59,6 @@ class RequestCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cabeçalho: status + número da solicitação
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -110,7 +111,6 @@ class RequestCard extends StatelessWidget {
           const SizedBox(height: 4),
           _infoRow(Icons.calendar_today, 'Retorno: ${_fmtReturn()}'),
 
-          // Alerta de atraso (retirada ou devolução fora do prazo)
           if (isLate) ...[
             const SizedBox(height: 10),
             _banner(
@@ -122,7 +122,15 @@ class RequestCard extends StatelessWidget {
             ),
           ],
 
-          // Veículo alocado (aparece a partir da aprovação)
+          if (request.wasReturnedLate) ...[
+            const SizedBox(height: 10),
+            _banner(
+              color: AppColors.canceled,
+              icon: Icons.schedule,
+              text: 'Veículo devolvido depois do prazo.',
+            ),
+          ],
+
           if (vehicle != null) ...[
             const SizedBox(height: 10),
             _banner(
@@ -132,7 +140,6 @@ class RequestCard extends StatelessWidget {
             ),
           ],
 
-          // Quilometragem registrada no uso
           if (request.departureMileage != null) ...[
             const SizedBox(height: 8),
             _infoRow(
@@ -149,7 +156,24 @@ class RequestCard extends StatelessWidget {
             ),
           ],
 
-          // Justificativa da recusa (regra 4.7)
+          // Observações da retirada e da devolução
+          if (request.checkOutNotes != null) ...[
+            const SizedBox(height: 10),
+            _banner(
+              color: AppColors.primary,
+              icon: Icons.sticky_note_2_outlined,
+              text: 'Obs. na retirada: ${request.checkOutNotes}',
+            ),
+          ],
+          if (request.checkInNotes != null) ...[
+            const SizedBox(height: 8),
+            _banner(
+              color: AppColors.primary,
+              icon: Icons.sticky_note_2_outlined,
+              text: 'Obs. na devolução: ${request.checkInNotes}',
+            ),
+          ],
+
           if (request.status == RequestStatus.recusada &&
               request.rejectionReason != null) ...[
             const SizedBox(height: 10),
@@ -160,7 +184,6 @@ class RequestCard extends StatelessWidget {
             ),
           ],
 
-          // Ações disponíveis conforme o status
           if (onCheckOut != null) ...[
             const SizedBox(height: 12),
             _actionButton(
@@ -179,25 +202,45 @@ class RequestCard extends StatelessWidget {
               onPressed: onCheckIn!,
             ),
           ],
-          if (onCancel != null) ...[
+
+          if (onEdit != null || onCancel != null) ...[
             const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onCancel,
-                icon: const Icon(
-                  Icons.close,
-                  size: 16,
-                  color: AppColors.rejected,
-                ),
-                label: const Text(
-                  'Cancelar',
-                  style: TextStyle(
-                    color: AppColors.rejected,
-                    fontWeight: FontWeight.w700,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (onEdit != null)
+                  TextButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(
+                      Icons.edit,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                    label: const Text(
+                      'Editar',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                if (onCancel != null)
+                  TextButton.icon(
+                    onPressed: onCancel,
+                    icon: const Icon(
+                      Icons.close,
+                      size: 16,
+                      color: AppColors.rejected,
+                    ),
+                    label: const Text(
+                      'Cancelar',
+                      style: TextStyle(
+                        color: AppColors.rejected,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ],

@@ -3,14 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:project/core/components/app_button_variant.dart';
 import 'package:project/core/components/input_text_field.dart';
 import 'package:project/core/controllers/request_controller.dart';
+import 'package:project/core/controllers/user_controller.dart';
 import 'package:project/core/controllers/vehicle_controller.dart';
 import 'package:project/core/models/request_model.dart';
+import 'package:project/core/models/user_model.dart';
 import 'package:project/core/models/vehicle_model.dart';
 import 'package:project/core/theme/app_colors.dart';
 import 'package:project/core/theme/app_text_styles.dart';
 
 class NewRequestPage extends StatefulWidget {
-  const NewRequestPage({super.key});
+  /// Quando informado, a tela funciona em modo de edição.
+  final RequestModel? request;
+
+  const NewRequestPage({super.key, this.request});
 
   @override
   State<NewRequestPage> createState() => _NewRequestPageState();
@@ -24,11 +29,34 @@ class _NewRequestPageState extends State<NewRequestPage> {
   DateTime? returnDate;
   ReturnPeriod? returnPeriod;
 
-  // Trocar a "versão" do formulário força os campos a se recriarem vazios.
+  // Trocar a "versão" do formulário força os campos a se recriarem.
   int _formVersion = 0;
 
+  bool get _isEditing => widget.request != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final r = widget.request;
+    if (r != null) {
+      reasonTravel = r.reason;
+      destination = r.destination;
+      numberPassengers = r.passengers;
+      departureDateTime = r.departure;
+      returnDate = r.returnDate;
+      returnPeriod = r.returnPeriod;
+    }
+  }
+
+  String _pad(int v) => v.toString().padLeft(2, '0');
+
+  String _fmtDate(DateTime? d) =>
+      d == null ? '' : '${_pad(d.day)}/${_pad(d.month)}/${d.year}';
+
+  String _fmtDateTime(DateTime? d) =>
+      d == null ? '' : '${_fmtDate(d)} ${_pad(d.hour)}:${_pad(d.minute)}';
+
   /// Limite do seletor: a maior lotação entre os veículos ativos.
-  /// Evita pedir uma viagem que nenhum carro da frota consegue atender.
   int get _maxPassengers {
     final seats = VehicleController.instance.vehicles
         .where(
@@ -54,7 +82,17 @@ class _NewRequestPageState extends State<NewRequestPage> {
   }
 
   void _submit() {
-    // Validações simples antes de enviar.
+    final user = UserController.instance.currentUser;
+
+    // Regra 5.2.4: CNH vencida ou não cadastrada não pode solicitar.
+    if (!user.canRequestVehicle) {
+      _showMessage(
+        'Sua CNH está vencida ou não cadastrada. '
+        'Procure o setor Administrativo.',
+      );
+      return;
+    }
+
     if (reasonTravel.trim().isEmpty || destination.trim().isEmpty) {
       _showMessage('Preencha o motivo e o destino da viagem.');
       return;
@@ -68,8 +106,16 @@ class _NewRequestPageState extends State<NewRequestPage> {
       return;
     }
 
-    // O prazo de devolução precisa ser depois da saída.
-    // Ex.: sair hoje às 14h e voltar hoje de manhã (até 12h) é inválido.
+    // A CNH precisa estar válida até o fim da viagem.
+    final expiry = user.cnhExpiry;
+    if (expiry != null &&
+        returnDate!.isAfter(DateTime(expiry.year, expiry.month, expiry.day))) {
+      _showMessage(
+        'Sua CNH vence em ${_fmtDate(expiry)}, antes da data de retorno.',
+      );
+      return;
+    }
+
     final deadline = DateTime(
       returnDate!.year,
       returnDate!.month,
@@ -84,7 +130,40 @@ class _NewRequestPageState extends State<NewRequestPage> {
       return;
     }
 
-    // Cria a solicitação (cai automaticamente em "Minhas Solicitações").
+    // Regra 4.4: o usuário não pode ter duas reservas no mesmo horário.
+    final hasConflict = RequestController.instance.userHasConflict(
+      userId: user.id,
+      start: departureDateTime!,
+      end: deadline,
+      ignoreRequestId: widget.request?.id,
+    );
+    if (hasConflict) {
+      _showMessage(
+        'Você já tem uma solicitação ativa nesse período. '
+        'Escolha outro horário ou cancele a anterior.',
+      );
+      return;
+    }
+
+    if (_isEditing) {
+      final reverted = RequestController.instance.updateRequest(
+        widget.request!.id,
+        reason: reasonTravel.trim(),
+        destination: destination.trim(),
+        passengers: numberPassengers,
+        departure: departureDateTime!,
+        returnDate: returnDate!,
+        returnPeriod: returnPeriod!,
+      );
+      _showMessage(
+        reverted
+            ? 'Solicitação alterada. Ela voltou para aprovação.'
+            : 'Solicitação atualizada.',
+      );
+      Navigator.of(context).pop();
+      return;
+    }
+
     RequestController.instance.addRequest(
       reason: reasonTravel.trim(),
       destination: destination.trim(),
@@ -104,11 +183,15 @@ class _NewRequestPageState extends State<NewRequestPage> {
 
   @override
   Widget build(BuildContext context) {
+    final user = UserController.instance.currentUser;
+    final isApprovedEdit =
+        _isEditing && widget.request!.status == RequestStatus.aprovada;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Nova Solicitação',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        title: Text(
+          _isEditing ? 'Editar Solicitação' : 'Nova Solicitação',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
@@ -128,6 +211,14 @@ class _NewRequestPageState extends State<NewRequestPage> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 20),
+                        if (!user.canRequestVehicle) ...[
+                          _cnhBlockedWarning(user),
+                          const SizedBox(height: 10),
+                        ],
+                        if (isApprovedEdit) ...[
+                          _approvalWarning(),
+                          const SizedBox(height: 10),
+                        ],
                         InputTextField(
                           label: 'Motivo da viagem',
                           hint: 'Digite o motivo da viagem',
@@ -149,7 +240,7 @@ class _NewRequestPageState extends State<NewRequestPage> {
                         InputTextField(
                           label: 'Data e hora de saída',
                           type: InputFieldType.dateTime,
-                          inputText: '',
+                          inputText: _fmtDateTime(departureDateTime),
                           hint: 'Selecione a data e hora',
                           firstDate: DateTime.now(),
                           onChanged: (_) {},
@@ -160,7 +251,7 @@ class _NewRequestPageState extends State<NewRequestPage> {
                         InputTextField(
                           label: 'Data de retorno',
                           type: InputFieldType.date,
-                          inputText: '',
+                          inputText: _fmtDate(returnDate),
                           hint: 'Selecione a data',
                           firstDate: departureDateTime ?? DateTime.now(),
                           onChanged: (_) {},
@@ -174,12 +265,19 @@ class _NewRequestPageState extends State<NewRequestPage> {
                         Center(
                           child: Column(
                             children: [
-                              AppButton(label: 'Confirmar', onPressed: _submit),
+                              AppButton(
+                                label: _isEditing
+                                    ? 'Salvar alterações'
+                                    : 'Confirmar',
+                                onPressed: _submit,
+                              ),
                               const SizedBox(height: 10),
                               AppButton(
                                 variant: AppButtonVariant.cancel,
-                                label: 'Limpar',
-                                onPressed: _clearForm,
+                                label: _isEditing ? 'Cancelar' : 'Limpar',
+                                onPressed: _isEditing
+                                    ? () => Navigator.of(context).pop()
+                                    : _clearForm,
                               ),
                             ],
                           ),
@@ -197,14 +295,68 @@ class _NewRequestPageState extends State<NewRequestPage> {
     );
   }
 
-  /// Seletor de passageiros com botões – e +, sem digitação.
+  /// Aviso exibido quando a CNH impede novas solicitações (regra 5.2.4).
+  Widget _cnhBlockedWarning(UserModel user) {
+    final message = user.cnhStatus == CnhStatus.vencida
+        ? 'Sua CNH está vencida. Você não pode solicitar veículos até '
+              'regularizar com o setor Administrativo.'
+        : 'Sua CNH não está cadastrada. Procure o setor Administrativo.';
+
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.8,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.rejected.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline, size: 18, color: AppColors.rejected),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Aviso exibido ao editar uma solicitação já aprovada.
+  Widget _approvalWarning() {
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.8,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.canceled.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 18, color: AppColors.canceled),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Esta solicitação já foi aprovada. Alterar datas, período ou '
+              'passageiros fará ela voltar para aprovação e o veículo será '
+              'liberado.',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Seletor de passageiros: card com ícone, texto de apoio e
+  /// botões circulares – / + com o número animado entre eles.
   Widget _passengerStepper() {
     final max = _maxPassengers;
-    // Se a frota mudou e o valor ficou acima do limite, ajusta.
     if (numberPassengers > max) numberPassengers = max;
-
-    final canDecrease = numberPassengers > 1;
-    final canIncrease = numberPassengers < max;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,7 +372,7 @@ class _NewRequestPageState extends State<NewRequestPage> {
         Container(
           width: MediaQuery.of(context).size.width * 0.8,
           margin: const EdgeInsets.only(top: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
           decoration: ShapeDecoration(
             color: AppColors.surface,
             shape: RoundedRectangleBorder(
@@ -236,24 +388,31 @@ class _NewRequestPageState extends State<NewRequestPage> {
           ),
           child: Row(
             children: [
-              _stepButton(
-                icon: Icons.remove,
-                enabled: canDecrease,
-                onTap: () => setState(() => numberPassengers--),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.groups_outlined,
+                  color: AppColors.primary,
+                ),
               ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '$numberPassengers',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
+                    const Text(
+                      'Inclui o motorista',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
-                      numberPassengers == 1 ? 'passageiro' : 'passageiros',
+                      'Máximo de $max',
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -264,22 +423,34 @@ class _NewRequestPageState extends State<NewRequestPage> {
                 ),
               ),
               _stepButton(
+                icon: Icons.remove,
+                enabled: numberPassengers > 1,
+                onTap: () => setState(() => numberPassengers--),
+              ),
+              SizedBox(
+                width: 40,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 150),
+                  transitionBuilder: (child, animation) =>
+                      ScaleTransition(scale: animation, child: child),
+                  child: Text(
+                    '$numberPassengers',
+                    key: ValueKey(numberPassengers),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+              _stepButton(
                 icon: Icons.add,
-                enabled: canIncrease,
+                enabled: numberPassengers < max,
                 onTap: () => setState(() => numberPassengers++),
               ),
             ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 8, top: 6),
-          child: Text(
-            'Inclui o motorista · máximo de $max',
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textMuted,
-            ),
           ),
         ),
       ],
@@ -291,26 +462,27 @@ class _NewRequestPageState extends State<NewRequestPage> {
     required bool enabled,
     required VoidCallback onTap,
   }) {
-    return Material(
-      color: enabled ? AppColors.primary : AppColors.background,
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: enabled ? onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Icon(
-            icon,
-            size: 22,
-            color: enabled ? Colors.white : AppColors.iconMuted,
+    final color = enabled ? AppColors.primary : AppColors.iconMuted;
+
+    return SizedBox(
+      width: 34,
+      height: 34,
+      child: OutlinedButton(
+        onPressed: enabled ? onTap : null,
+        style: OutlinedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          shape: const CircleBorder(),
+          side: BorderSide(
+            color: enabled ? color : color.withValues(alpha: 0.5),
+            width: 1.5,
           ),
         ),
+        child: Icon(icon, size: 18, color: color),
       ),
     );
   }
 
-  /// Seletor de período de retorno (Manhã / Tarde), com o mesmo
-  /// visual dos demais campos do formulário.
+  /// Seletor de período de retorno (Manhã / Tarde).
   Widget _periodSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

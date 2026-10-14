@@ -1052,6 +1052,10 @@ class _AgendaPageState extends State<AgendaPage> {
                 _detail('Devolvido em', _fmtDateTime(r.checkInAt)),
               if (r.distanceTravelled != null)
                 _detail('Distância', '${r.distanceTravelled} km'),
+              if (r.checkOutNotes != null)
+                _detail('Obs. retirada', r.checkOutNotes!),
+              if (r.checkInNotes != null)
+                _detail('Obs. devolução', r.checkInNotes!),
             ],
           ),
         ),

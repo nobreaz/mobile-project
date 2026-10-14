@@ -1,70 +1,84 @@
 import 'package:flutter/material.dart';
 import 'package:project/core/components/request_card.dart';
 import 'package:project/core/controllers/request_controller.dart';
+import 'package:project/core/controllers/user_controller.dart';
 import 'package:project/core/models/request_model.dart';
 import 'package:project/core/theme/app_colors.dart';
+import 'package:project/pages/new_request_page.dart';
 
 class MyRequestsPage extends StatelessWidget {
   const MyRequestsPage({super.key});
 
-  /// Diálogo único usado tanto no check-out quanto no check-in.
-  /// Pede a quilometragem e valida o valor informado.
-  ///
-  /// [minimum] é o menor valor aceito e [minimumMessage] é o texto
-  /// de erro exibido quando o usuário digita algo abaixo dele.
-  Future<int?> _askMileage(
+  /// Diálogo do check-out e do check-in: quilometragem + observação.
+  Future<({int mileage, String? notes})?> _askMileage(
     BuildContext context, {
     required String title,
     required String description,
     int? minimum,
     String? minimumMessage,
   }) {
-    final controller = TextEditingController();
+    final mileageController = TextEditingController();
+    final notesController = TextEditingController();
     String? errorText;
 
-    return showDialog<int>(
+    return showDialog<({int mileage, String? notes})>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
           title: Text(title),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                description,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textMuted,
-                ),
-              ),
-              if (minimum != null) ...[
-                const SizedBox(height: 6),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  'Mínimo aceito: $minimum km',
+                  description,
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
+                    fontSize: 13,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                if (minimum != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Mínimo aceito: $minimum km',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: mileageController,
+                  keyboardType: TextInputType.number,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Quilometragem',
+                    hintText: minimum != null ? '$minimum' : 'Ex.: 42500',
+                    errorText: errorText,
+                    errorMaxLines: 2,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Observações (opcional)',
+                    hintText: 'Ex.: nível de combustível, avarias...',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Quilometragem',
-                  hintText: minimum != null ? '$minimum' : 'Ex.: 42500',
-                  errorText: errorText,
-                  errorMaxLines: 2,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
           actions: [
             TextButton(
@@ -73,21 +87,22 @@ class MyRequestsPage extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                final value = int.tryParse(controller.text.trim());
+                final value = int.tryParse(mileageController.text.trim());
                 if (value == null) {
-                  setDialogState(
-                    () => errorText = 'Informe um número válido.',
-                  );
+                  setDialogState(() => errorText = 'Informe um número válido.');
                   return;
                 }
                 if (minimum != null && value < minimum) {
                   setDialogState(
-                    () => errorText = minimumMessage ??
+                    () => errorText =
+                        minimumMessage ??
                         'O valor deve ser maior ou igual a $minimum km.',
                   );
                   return;
                 }
-                Navigator.of(dialogContext).pop(value);
+                final notes = notesController.text.trim();
+                Navigator.of(dialogContext)
+                    .pop((mileage: value, notes: notes.isEmpty ? null : notes));
               },
               child: const Text('Confirmar'),
             ),
@@ -99,23 +114,27 @@ class MyRequestsPage extends StatelessWidget {
 
   Future<void> _checkOut(BuildContext context, RequestModel request) async {
     final vehicle = RequestController.instance.vehicleOf(request);
-    final minimum =
-        RequestController.instance.minimumCheckOutMileage(request);
+    final minimum = RequestController.instance.minimumCheckOutMileage(request);
 
-    final mileage = await _askMileage(
+    final result = await _askMileage(
       context,
       title: 'Retirada do veículo',
       description: vehicle == null
           ? 'Informe a quilometragem atual do painel.'
           : 'Informe a quilometragem atual do painel do '
-              '${vehicle.model} (${vehicle.plate}).',
+                '${vehicle.model} (${vehicle.plate}).',
       minimum: minimum,
-      minimumMessage: 'A km de saída não pode ser menor que a '
+      minimumMessage:
+          'A km de saída não pode ser menor que a '
           'quilometragem atual do veículo ($minimum km).',
     );
-    if (mileage == null) return;
+    if (result == null) return;
 
-    final ok = RequestController.instance.checkOut(request.id, mileage);
+    final ok = RequestController.instance.checkOut(
+      request.id,
+      result.mileage,
+      notes: result.notes,
+    );
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -132,18 +151,24 @@ class MyRequestsPage extends StatelessWidget {
   Future<void> _checkIn(BuildContext context, RequestModel request) async {
     final minimum = request.departureMileage;
 
-    final mileage = await _askMileage(
+    final result = await _askMileage(
       context,
       title: 'Devolução do veículo',
-      description: 'Informe a quilometragem do painel no momento '
+      description:
+          'Informe a quilometragem do painel no momento '
           'da devolução. A km do veículo será atualizada.',
       minimum: minimum,
-      minimumMessage: 'A km de retorno não pode ser menor que a '
+      minimumMessage:
+          'A km de retorno não pode ser menor que a '
           'km de saída ($minimum km).',
     );
-    if (mileage == null) return;
+    if (result == null) return;
 
-    final ok = RequestController.instance.checkIn(request.id, mileage);
+    final ok = RequestController.instance.checkIn(
+      request.id,
+      result.mileage,
+      notes: result.notes,
+    );
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -155,6 +180,12 @@ class MyRequestsPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _edit(BuildContext context, RequestModel request) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => NewRequestPage(request: request)));
   }
 
   @override
@@ -170,12 +201,12 @@ class MyRequestsPage extends StatelessWidget {
       ),
       body: Container(
         color: AppColors.background,
-        // Ouve o RequestController: sempre que uma solicitação é
-        // criada ou alterada, a lista se atualiza sozinha.
         child: AnimatedBuilder(
           animation: RequestController.instance,
           builder: (context, _) {
-            final requests = RequestController.instance.requests;
+            // Apenas as solicitações do usuário logado.
+            final userId = UserController.instance.currentUser.id;
+            final requests = RequestController.instance.requestsOf(userId);
 
             if (requests.isEmpty) {
               return _emptyState();
@@ -192,7 +223,10 @@ class MyRequestsPage extends StatelessWidget {
                   request: request,
                   onCancel: request.status == RequestStatus.pendente
                       ? () =>
-                          RequestController.instance.cancelRequest(request.id)
+                            RequestController.instance.cancelRequest(request.id)
+                      : null,
+                  onEdit: request.canEdit
+                      ? () => _edit(context, request)
                       : null,
                   onCheckOut: request.status == RequestStatus.aprovada
                       ? () => _checkOut(context, request)
