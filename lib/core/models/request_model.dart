@@ -16,7 +16,6 @@ enum RequestStatus {
 }
 
 extension RequestStatusX on RequestStatus {
-  /// Texto exibido na interface.
   String get label {
     switch (this) {
       case RequestStatus.pendente:
@@ -34,7 +33,6 @@ extension RequestStatusX on RequestStatus {
     }
   }
 
-  /// Cor associada ao status (reaproveita a paleta do app).
   Color get color {
     switch (this) {
       case RequestStatus.pendente:
@@ -54,9 +52,6 @@ extension RequestStatusX on RequestStatus {
 }
 
 /// Período do dia em que o veículo será devolvido.
-///
-/// Evita bloquear o veículo o dia inteiro: quem devolve pela manhã
-/// libera o carro para outra saída na parte da tarde.
 enum ReturnPeriod { manha, tarde }
 
 extension ReturnPeriodX on ReturnPeriod {
@@ -70,7 +65,6 @@ extension ReturnPeriodX on ReturnPeriod {
   }
 
   /// Horário limite de devolução de cada período.
-  /// Ajuste aqui caso a empresa trabalhe com outros horários.
   int get endHour {
     switch (this) {
       case ReturnPeriod.manha:
@@ -80,7 +74,6 @@ extension ReturnPeriodX on ReturnPeriod {
     }
   }
 
-  /// Ex.: "até 12h".
   String get description => 'até ${endHour}h';
 }
 
@@ -89,18 +82,17 @@ extension ReturnPeriodX on ReturnPeriod {
 class RequestModel {
   final int id;
 
-  /// Quem abriu a solicitação (item 5.3.1).
-  /// Enquanto não há autenticação, recebe um valor padrão.
+  /// Usuário que abriu a solicitação (id + nome).
+  final int requesterId;
   final String requester;
 
-  final String reason;
-  final String destination;
-  final int passengers;
-  final DateTime? departure;
-  final DateTime? returnDate;
-
-  /// Período de devolução (manhã ou tarde) no dia do retorno.
-  final ReturnPeriod? returnPeriod;
+  // Campos editáveis antes do check-out.
+  String reason;
+  String destination;
+  int passengers;
+  DateTime? departure;
+  DateTime? returnDate;
+  ReturnPeriod? returnPeriod;
 
   RequestStatus status;
 
@@ -110,25 +102,24 @@ class RequestModel {
   /// Justificativa obrigatória em caso de recusa (regra 4.7).
   String? rejectionReason;
 
-  /// Quilometragem registrada no check-out (retirada do veículo).
-  /// Item 5.3.5 do documento.
+  /// Quilometragem de saída e de retorno (item 5.3.5 / regra 4.8).
   int? departureMileage;
-
-  /// Quilometragem registrada no check-in (devolução do veículo).
-  /// Alimenta a atualização da km do veículo — regra 4.8.
   int? returnMileage;
 
-  /// Momento em que o veículo foi efetivamente retirado.
+  /// Momentos reais de retirada e devolução.
   DateTime? checkOutAt;
-
-  /// Momento em que o veículo foi efetivamente devolvido.
   DateTime? checkInAt;
+
+  /// Observações registradas na retirada e na devolução.
+  String? checkOutNotes;
+  String? checkInNotes;
 
   RequestModel({
     required this.id,
     required this.reason,
     required this.destination,
     required this.passengers,
+    this.requesterId = 1,
     this.requester = 'Nome Sobrenome',
     this.departure,
     this.returnDate,
@@ -140,12 +131,11 @@ class RequestModel {
     this.returnMileage,
     this.checkOutAt,
     this.checkInAt,
+    this.checkOutNotes,
+    this.checkInNotes,
   });
 
-  /// Prazo exato de devolução: data de retorno + horário limite do
-  /// período escolhido. Ex.: 10/10 + Manhã = 10/10 às 12:00.
-  ///
-  /// É o fim do intervalo em que o veículo fica ocupado.
+  /// Prazo exato de devolução: data de retorno + horário do período.
   DateTime? get returnDeadline {
     final date = returnDate;
     if (date == null) return null;
@@ -153,19 +143,31 @@ class RequestModel {
     return DateTime(date.year, date.month, date.day, hour);
   }
 
-  /// Indica se a reserva está atrasada: a data de saída já passou
-  /// e o motorista ainda não realizou o check-out.
+  /// Pode ser editada? Somente antes do check-out.
+  bool get canEdit =>
+      status == RequestStatus.pendente || status == RequestStatus.aprovada;
+
+  /// Data de saída passou e o veículo não foi retirado.
   bool get isCheckOutLate =>
       status == RequestStatus.aprovada &&
       departure != null &&
       departure!.isBefore(DateTime.now());
 
-  /// Indica se a devolução está atrasada: o prazo de retorno já passou
-  /// e o veículo continua em uso.
+  /// Prazo de retorno passou e o veículo continua em uso.
   bool get isReturnLate =>
       status == RequestStatus.emUso &&
       returnDeadline != null &&
       returnDeadline!.isBefore(DateTime.now());
+
+  /// Viagem finalizada, mas devolvida depois do prazo.
+  bool get wasReturnedLate {
+    final deadline = returnDeadline;
+    final at = checkInAt;
+    return status == RequestStatus.finalizada &&
+        deadline != null &&
+        at != null &&
+        at.isAfter(deadline);
+  }
 
   /// Distância percorrida na viagem, quando já finalizada.
   int? get distanceTravelled {

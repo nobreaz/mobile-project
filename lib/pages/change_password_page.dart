@@ -11,8 +11,53 @@ class ChangePasswordPage extends StatefulWidget {
 }
 
 class _ChangePasswordPageState extends State<ChangePasswordPage> {
-  String password = '';
+  String currentPassword = '';
+  String newPassword = '';
   String confirmPassword = '';
+
+  // Trocar a "versão" recria os campos vazios (botão Limpar).
+  int _formVersion = 0;
+
+  // Regra 6.2: mínimo de 6 caracteres, 1 número e 1 caractere especial.
+  bool get _hasMinLength => newPassword.length >= 6;
+  bool get _hasNumber => RegExp(r'[0-9]').hasMatch(newPassword);
+  bool get _hasSpecial => RegExp(r'[^A-Za-z0-9\s]').hasMatch(newPassword);
+  bool get _matches => newPassword.isNotEmpty && newPassword == confirmPassword;
+
+  void _clear() => setState(() {
+    currentPassword = '';
+    newPassword = '';
+    confirmPassword = '';
+    _formVersion++;
+  });
+
+  void _show(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  void _submit() {
+    if (currentPassword.isEmpty) {
+      _show('Informe a senha atual.');
+      return;
+    }
+    if (!_hasMinLength || !_hasNumber || !_hasSpecial) {
+      _show('A nova senha não atende aos requisitos.');
+      return;
+    }
+    if (!_matches) {
+      _show('A confirmação não confere com a nova senha.');
+      return;
+    }
+    if (newPassword == currentPassword) {
+      _show('A nova senha precisa ser diferente da atual.');
+      return;
+    }
+
+    // Quando houver Firebase: reautenticar com a senha atual
+    // e chamar updatePassword(newPassword).
+    _show('Senha alterada com sucesso!');
+    Navigator.of(context).pop();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,56 +79,114 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 20),
-                      InputTextField(
-                        label: 'Senha atual',
-                        type: InputFieldType.password,
-                        inputText: '',
-                        hint: '********',
-                        onChanged: (text) => password = text,
-                      ),
-                      const SizedBox(height: 20),
-                      InputTextField(
-                        label: 'Nova senha',
-                        type: InputFieldType.password,
-                        inputText: '',
-                        hint: '********',
-                        onChanged: (text) => confirmPassword = text,
-                      ),
-                      const SizedBox(height: 20),
-                      InputTextField(
-                        label: 'Confirmar nova senha',               
-                        type: InputFieldType.password,
-                        inputText: '',
-                        hint: '********',
-                        onChanged: (text) => confirmPassword = text,
-                      ),
-                      const Spacer(),
-                      const SizedBox(height: 40),
-                      Center(
-                        child: Column(
-                          children: [
-                            AppButton(label: 'Confirmar', onPressed: () {}),
-                            const SizedBox(height: 10),
-                            AppButton(
-                              variant: AppButtonVariant.cancel,
-                              label: 'Limpar',
-                              onPressed: () {},
-                            ),
-                          ],
+                  child: KeyedSubtree(
+                    key: ValueKey(_formVersion),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 20),
+                        InputTextField(
+                          label: 'Senha atual',
+                          type: InputFieldType.password,
+                          inputText: '',
+                          hint: '********',
+                          onChanged: (text) =>
+                              setState(() => currentPassword = text),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
+                        const SizedBox(height: 20),
+                        InputTextField(
+                          label: 'Nova senha',
+                          type: InputFieldType.password,
+                          inputText: '',
+                          hint: '********',
+                          onChanged: (text) =>
+                              setState(() => newPassword = text),
+                        ),
+                        const SizedBox(height: 20),
+                        InputTextField(
+                          label: 'Confirmar nova senha',
+                          type: InputFieldType.password,
+                          inputText: '',
+                          hint: '********',
+                          onChanged: (text) =>
+                              setState(() => confirmPassword = text),
+                        ),
+                        const SizedBox(height: 20),
+                        _requirements(),
+                        const Spacer(),
+                        const SizedBox(height: 40),
+                        AppButton(label: 'Confirmar', onPressed: _submit),
+                        const SizedBox(height: 10),
+                        AppButton(
+                          variant: AppButtonVariant.cancel,
+                          label: 'Limpar',
+                          onPressed: _clear,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
                   ),
                 ),
               ),
             );
           },
         ),
+      ),
+    );
+  }
+
+  /// Lista de requisitos que marca ✓ conforme o usuário digita.
+  Widget _requirements() {
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.8,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'A nova senha precisa ter:',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _rule(_hasMinLength, 'No mínimo 6 caracteres'),
+          _rule(_hasNumber, 'Pelo menos 1 número'),
+          _rule(_hasSpecial, 'Pelo menos 1 caractere especial (ex.: @ # !)'),
+          _rule(_matches, 'Confirmação igual à nova senha'),
+        ],
+      ),
+    );
+  }
+
+  Widget _rule(bool ok, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            ok ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 16,
+            color: ok ? AppColors.approved : AppColors.iconMuted,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: ok ? Colors.black87 : AppColors.textMuted,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

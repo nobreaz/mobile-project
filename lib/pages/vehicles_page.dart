@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project/core/components/vehicle_card.dart';
+import 'package:project/core/controllers/request_controller.dart';
 import 'package:project/core/controllers/vehicle_controller.dart';
 import 'package:project/core/models/vehicle_model.dart';
 import 'package:project/core/theme/app_colors.dart';
@@ -12,9 +13,7 @@ class VehiclesPage extends StatelessWidget {
 
   void _openForm(BuildContext context, {VehicleModel? vehicle}) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => VehicleFormPage(vehicle: vehicle),
-      ),
+      MaterialPageRoute(builder: (_) => VehicleFormPage(vehicle: vehicle)),
     );
   }
 
@@ -22,6 +21,30 @@ class VehiclesPage extends StatelessWidget {
     BuildContext context,
     VehicleModel vehicle,
   ) async {
+    // Veículo com reservas ativas não pode ser removido.
+    final bookings = RequestController.instance.activeBookingsOf(vehicle.id);
+    if (bookings.isNotEmpty) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Não é possível remover'),
+          content: Text(
+            'O veículo ${vehicle.model} (${vehicle.plate}) possui '
+            '${bookings.length} reserva(s) ativa(s).\n\n'
+            'Para tirá-lo da frota, edite o veículo e marque o status como '
+            '"Inativo". As reservas aprovadas voltarão para aprovação.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Entendi'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -105,8 +128,11 @@ class VehiclesPage extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.directions_car_outlined,
-              size: 72, color: AppColors.iconMuted),
+          Icon(
+            Icons.directions_car_outlined,
+            size: 72,
+            color: AppColors.iconMuted,
+          ),
           SizedBox(height: 12),
           Text(
             'Nenhum veículo cadastrado',

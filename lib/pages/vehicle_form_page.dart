@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:project/core/components/app_button_variant.dart';
 import 'package:project/core/components/input_text_field.dart';
+import 'package:project/core/controllers/request_controller.dart';
 import 'package:project/core/controllers/vehicle_controller.dart';
+import 'package:project/core/models/request_model.dart';
 import 'package:project/core/models/vehicle_model.dart';
 import 'package:project/core/theme/app_colors.dart';
 import 'package:project/core/theme/app_text_styles.dart';
@@ -45,13 +47,90 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
     status = v?.status ?? VehicleStatus.disponivel;
   }
 
+  String _pad(int v) => v.toString().padLeft(2, '0');
+
+  String _fmtDate(DateTime? d) =>
+      d == null ? '—' : '${_pad(d.day)}/${_pad(d.month)}';
+
   void _showMessage(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  void _save() {
+  /// Confirma a devolução das reservas afetadas para Pendente.
+  Future<bool> _confirmRelease(
+    List<RequestModel> bookings, {
+    required bool becomesUnavailable,
+  }) async {
+    final reason = becomesUnavailable
+        ? 'Ao mudar o status para "${status.label}", o veículo deixa de '
+              'atender estas reservas:'
+        : 'Com menos lugares, o veículo deixa de comportar estas reservas:';
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reservas afetadas'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(reason, style: const TextStyle(fontSize: 13)),
+              const SizedBox(height: 10),
+              for (final r in bookings)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.event,
+                        size: 16,
+                        color: AppColors.iconMuted,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '#${r.id} · ${r.destination} · '
+                          '${_fmtDate(r.departure)} · '
+                          '${r.passengers} passageiro(s)',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 6),
+              const Text(
+                'Se continuar, elas voltam para "Pendente" e precisam ser '
+                'realocadas em Solicitações Pendentes.',
+                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(
+              'Continuar',
+              style: TextStyle(color: AppColors.rejected),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return result == true;
+  }
+
+  Future<void> _save() async {
     if (plate.trim().isEmpty || model.trim().isEmpty) {
       _showMessage('Preencha ao menos a placa e o modelo do veículo.');
       return;
@@ -62,8 +141,45 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
     final parsedMileage = int.tryParse(mileage) ?? 0;
 
     if (isEditing) {
+      final vehicle = widget.vehicle!;
+      final bookings = RequestController.instance.activeBookingsOf(vehicle.id);
+
+      final becomesUnavailable =
+          status == VehicleStatus.emManutencao ||
+          status == VehicleStatus.inativo;
+
+      // Carro em viagem: não pode ir para manutenção/inativo agora.
+      final inUse = bookings
+          .where((r) => r.status == RequestStatus.emUso)
+          .toList();
+      if (becomesUnavailable && inUse.isNotEmpty) {
+        _showMessage(
+          'O veículo está em uso. Registre a devolução (check-in) '
+          'antes de mudar o status para "${status.label}".',
+        );
+        return;
+      }
+
+      // Reservas aprovadas que o veículo deixará de atender.
+      final approved = bookings.where(
+        (r) => r.status == RequestStatus.aprovada,
+      );
+      final toRelease = becomesUnavailable
+          ? approved.toList()
+          : approved.where((r) => r.passengers > parsedSeats).toList();
+
+      if (toRelease.isNotEmpty) {
+        final confirmed = await _confirmRelease(
+          toRelease,
+          becomesUnavailable: becomesUnavailable,
+        );
+        if (!confirmed || !mounted) return;
+
+        RequestController.instance.releaseBookings(toRelease.map((r) => r.id));
+      }
+
       VehicleController.instance.updateVehicle(
-        widget.vehicle!.id,
+        vehicle.id,
         plate: plate.trim(),
         chassis: chassis.trim(),
         model: model.trim(),
@@ -74,7 +190,12 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
         type: type,
         status: status,
       );
-      _showMessage('Veículo atualizado com sucesso!');
+      _showMessage(
+        toRelease.isEmpty
+            ? 'Veículo atualizado com sucesso!'
+            : 'Veículo atualizado. ${toRelease.length} reserva(s) '
+                  'voltaram para aprovação.',
+      );
     } else {
       VehicleController.instance.addVehicle(
         plate: plate.trim(),
@@ -90,6 +211,7 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
       _showMessage('Veículo cadastrado com sucesso!');
     }
 
+    if (!mounted) return;
     Navigator.of(context).pop();
   }
 
