@@ -50,7 +50,9 @@ class _Reader {
     for (final p in UserProfile.values) {
       if (p.name == value) return p;
     }
-    errors[key] = 'Perfil deve ser "padrao" ou "aprovador".';
+    errors[key] =
+        'Perfil deve ser '
+        '${UserProfile.values.map((p) => '"${p.name}"').join(', ')}.';
     return null;
   }
 
@@ -71,7 +73,7 @@ class _Reader {
   }
 }
 
-/// Corpo de `POST /usuarios`: o Aprovador cadastra um colaborador
+/// Corpo de `POST /usuarios`: o Administrador cadastra um colaborador
 /// com uma senha inicial (RF 3.1.3; senha segue a RNF 6.2).
 class NewUserInput {
   NewUserInput._(this.user, this.password);
@@ -114,7 +116,7 @@ class NewUserInput {
   final String password;
 }
 
-/// Corpo de `PATCH /usuarios/{id}` (Aprovador). Só os campos enviados mudam.
+/// Corpo de `PATCH /usuarios/{id}` (Administrador). Só os campos enviados mudam.
 /// O e-mail não muda aqui: ele é o login no Supabase Auth.
 ///
 /// Devolve as alterações já com os nomes das colunas do banco.

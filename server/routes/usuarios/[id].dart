@@ -8,7 +8,7 @@ import 'package:frota_server/src/supabase_auth.dart';
 import 'package:frota_server/src/user_input.dart';
 import 'package:frota_server/src/usuarios_repository.dart';
 
-/// `/usuarios/{id}` (só Aprovador).
+/// `/usuarios/{id}` (só Administrador).
 /// - GET: detalhe do usuário.
 /// - PATCH: altera dados, perfil ou ativa/desativa o acesso.
 ///   Usuário nunca é apagado: desativar bloqueia o login e mantém o histórico.
@@ -31,13 +31,13 @@ Future<Response> onRequest(RequestContext context, String id) async {
     case HttpMethod.patch:
       final changes = parseUserUpdate(await readJsonObject(context));
 
-      // O Aprovador não pode tirar o próprio acesso nem o próprio perfil:
+      // O Administrador não pode tirar o próprio acesso nem o próprio perfil:
       // evita que o sistema fique sem ninguém para administrar.
       final me = context.read<UserModel>();
       final selfLockout =
           changes['ativo'] == false ||
           (changes.containsKey('perfil') &&
-              changes['perfil'] != UserProfile.aprovador.name);
+              changes['perfil'] != UserProfile.administrador.name);
       if (me.id == userId && selfLockout) {
         throw const ApiException.forbidden(
           'Você não pode desativar nem rebaixar o próprio usuário.',

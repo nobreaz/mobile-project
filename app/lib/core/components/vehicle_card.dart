@@ -4,25 +4,25 @@ import 'package:project/core/theme/app_colors.dart';
 
 /// Card que exibe um veículo na tela "Gestão de Veículos",
 /// com as ações de editar e desativar/reativar.
+/// Sem callbacks (visão do Aprovador), funciona só como leitura.
 class VehicleCard extends StatelessWidget {
   final VehicleModel vehicle;
-  final VoidCallback onEdit;
-  final VoidCallback onToggleActive;
+  final VoidCallback? onEdit;
+  final VoidCallback? onToggleActive;
 
   const VehicleCard({
     super.key,
     required this.vehicle,
-    required this.onEdit,
-    required this.onToggleActive,
+    this.onEdit,
+    this.onToggleActive,
   });
 
   bool get _isInactive => vehicle.status == VehicleStatus.inativo;
 
   String _pad(int v) => v.toString().padLeft(2, '0');
 
-  String _fmtDate(DateTime? d) => d == null
-      ? 'não informado'
-      : '${_pad(d.day)}/${_pad(d.month)}/${d.year}';
+  String _fmtDate(DateTime? d) =>
+      d == null ? 'não informado' : '${_pad(d.day)}/${_pad(d.month)}/${d.year}';
 
   @override
   Widget build(BuildContext context) {
@@ -80,8 +80,10 @@ class VehicleCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: vehicle.status.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
@@ -116,40 +118,50 @@ class VehicleCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           _expiry('Seguro', vehicle.insuranceExpiry, vehicle.insuranceStatus),
-          const Divider(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton.icon(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit,
-                    size: 16, color: AppColors.primary),
-                label: const Text(
-                  'Editar',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
+          if (onEdit != null || onToggleActive != null) ...[
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (onEdit != null)
+                  TextButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(
+                      Icons.edit,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                    label: const Text(
+                      'Editar',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: onToggleActive,
-                icon: Icon(
-                  _isInactive ? Icons.restart_alt : Icons.block,
-                  size: 16,
-                  color: _isInactive ? AppColors.approved : AppColors.rejected,
-                ),
-                label: Text(
-                  _isInactive ? 'Reativar' : 'Desativar',
-                  style: TextStyle(
-                    color:
-                        _isInactive ? AppColors.approved : AppColors.rejected,
-                    fontWeight: FontWeight.w700,
+                if (onToggleActive != null)
+                  TextButton.icon(
+                    onPressed: onToggleActive,
+                    icon: Icon(
+                      _isInactive ? Icons.restart_alt : Icons.block,
+                      size: 16,
+                      color: _isInactive
+                          ? AppColors.approved
+                          : AppColors.rejected,
+                    ),
+                    label: Text(
+                      _isInactive ? 'Reativar' : 'Desativar',
+                      style: TextStyle(
+                        color: _isInactive
+                            ? AppColors.approved
+                            : AppColors.rejected,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );

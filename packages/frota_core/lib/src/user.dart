@@ -4,8 +4,15 @@ String formatDate(DateTime d) =>
     '${d.month.toString().padLeft(2, '0')}-'
     '${d.day.toString().padLeft(2, '0')}';
 
-/// Perfil de acesso no sistema (seção 2 do documento).
-enum UserProfile { padrao, aprovador }
+/// Perfil de acesso no sistema.
+///
+/// O documento (seção 2) define Padrão e Aprovador. O grupo separou as
+/// funções em três perfis, um por pessoa (segregação de funções):
+/// - Padrão: solicita e usa veículos.
+/// - Aprovador: aprova/recusa e aloca veículos. NÃO solicita (regra do
+///   professor: ninguém aprova o próprio pedido).
+/// - Administrador: cadastra veículos e usuários. Não solicita nem aprova.
+enum UserProfile { padrao, aprovador, administrador }
 
 extension UserProfileX on UserProfile {
   String get label {
@@ -14,8 +21,23 @@ extension UserProfileX on UserProfile {
         return 'Padrão';
       case UserProfile.aprovador:
         return 'Aprovador';
+      case UserProfile.administrador:
+        return 'Administrador';
     }
   }
+
+  /// Solicitar veículo, check-out e check-in.
+  bool get canRequest => this == UserProfile.padrao;
+
+  /// Aprovar/recusar solicitações e alocar veículos.
+  bool get canApprove => this == UserProfile.aprovador;
+
+  /// Cadastrar e gerenciar veículos e usuários.
+  bool get canManageRegistry => this == UserProfile.administrador;
+
+  /// Ver a frota (status, km, vencimentos). Só o Administrador altera.
+  bool get canViewFleet =>
+      this == UserProfile.aprovador || this == UserProfile.administrador;
 }
 
 /// Situação da CNH (regra 5.2.4: CNH vencida não pode solicitar veículo).
@@ -118,8 +140,11 @@ class UserModel {
     return CnhStatus.valida;
   }
 
-  /// Pode solicitar veículo? (regra 5.2.4)
-  bool get canRequestVehicle =>
+  /// Pode solicitar veículo? Só o perfil Padrão, com CNH válida (5.2.4).
+  bool get canRequestVehicle => profile.canRequest && hasValidCnh;
+
+  /// CNH válida ou vencendo (ainda dentro da validade).
+  bool get hasValidCnh =>
       cnhStatus == CnhStatus.valida || cnhStatus == CnhStatus.vencendo;
 
   /// Iniciais para o avatar. Ex.: "Felipe Soares" → "FS".

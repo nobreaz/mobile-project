@@ -1,4 +1,5 @@
 import 'package:frota_server/src/config.dart';
+import 'package:frota_server/src/solicitacoes_repository.dart';
 import 'package:frota_server/src/supabase_auth.dart';
 import 'package:frota_server/src/usuarios_repository.dart';
 import 'package:postgres/postgres.dart';
@@ -29,4 +30,6 @@ class Services {
   final SupabaseAuth auth;
 
   late final usuarios = UsuariosRepository(db);
+
+  late final solicitacoes = SolicitacoesRepository(db);
 }

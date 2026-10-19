@@ -4,64 +4,20 @@ import 'package:project/core/controllers/user_controller.dart';
 import 'package:project/core/controllers/vehicle_controller.dart';
 import 'package:project/core/models/notification_model.dart';
 import 'package:project/core/models/request_model.dart';
+import 'package:project/core/models/user_model.dart';
 import 'package:project/core/models/vehicle_model.dart';
 
 /// Armazena as solicitações em memória enquanto o app está aberto.
 ///
-/// Mesmo padrão do AppController: singleton + ChangeNotifier.
-/// Quando houver backend (Firebase), basta trocar o miolo desta classe.
+/// Começa vazio: com usuários reais (ids do banco), solicitações de
+/// exemplo apareceriam no histórico de quem tivesse o mesmo id.
+/// Quando a API de solicitações existir, basta trocar o miolo desta classe.
 class RequestController extends ChangeNotifier {
   RequestController._();
   static final RequestController instance = RequestController._();
 
-  final List<RequestModel> _requests = _seed();
-  int _nextId = 3;
-
-  /// Solicitações de exemplo (remover quando houver backend).
-  static List<RequestModel> _seed() {
-    final now = DateTime.now();
-    final d1 = DateTime(now.year, now.month, now.day - 10);
-    final d2 = DateTime(now.year, now.month, now.day - 5);
-
-    return [
-      RequestModel(
-        id: 1,
-        requesterId: 2,
-        requester: 'Ana Ribeiro',
-        reason: 'Visita técnica a cliente',
-        destination: 'Rio das Ostras',
-        passengers: 2,
-        departure: DateTime(d1.year, d1.month, d1.day, 8),
-        returnDate: d1,
-        returnPeriod: ReturnPeriod.manha,
-        status: RequestStatus.finalizada,
-        vehicleId: 1,
-        departureMileage: 42100,
-        returnMileage: 42260,
-        checkOutAt: DateTime(d1.year, d1.month, d1.day, 8, 5),
-        checkInAt: DateTime(d1.year, d1.month, d1.day, 11, 40),
-        checkOutNotes: 'Tanque com 3/4.',
-      ),
-      RequestModel(
-        id: 2,
-        requesterId: 3,
-        requester: 'Carlos Mendes',
-        reason: 'Entrega de equipamentos',
-        destination: 'Campos dos Goytacazes',
-        passengers: 3,
-        departure: DateTime(d2.year, d2.month, d2.day, 13),
-        returnDate: d2,
-        returnPeriod: ReturnPeriod.tarde,
-        status: RequestStatus.finalizada,
-        vehicleId: 1,
-        departureMileage: 42260,
-        returnMileage: 42500,
-        checkOutAt: DateTime(d2.year, d2.month, d2.day, 13, 10),
-        checkInAt: DateTime(d2.year, d2.month, d2.day, 19, 25),
-        checkInNotes: 'Risco leve na porta traseira direita.',
-      ),
-    ];
-  }
+  final List<RequestModel> _requests = [];
+  int _nextId = 1;
 
   /// Envia uma notificação ao solicitante.
   void _notify(RequestModel r, NotificationType type, String message) {
@@ -81,6 +37,31 @@ class RequestController extends ChangeNotifier {
   List<RequestModel> get pendingRequests => List.unmodifiable(
     _requests.reversed.where((r) => r.status == RequestStatus.pendente),
   );
+
+  /// Já aprovadas (aprovada, em uso ou finalizada) ou recusadas, por
+  /// qualquer aprovador; mais recentes decisões primeiro.
+  /// [approverId] limita às decididas por um aprovador ("só as minhas").
+  List<RequestModel> decidedRequests({
+    required bool approved,
+    int? approverId,
+  }) {
+    final list =
+        _requests
+            .where(
+              (r) =>
+                  (approved
+                      ? r.wasApproved
+                      : r.status == RequestStatus.recusada) &&
+                  (approverId == null || r.approverId == approverId),
+            )
+            .toList()
+          ..sort((a, b) {
+            final da = a.decidedAt, db = b.decidedAt;
+            if (da == null || db == null) return b.id.compareTo(a.id);
+            return db.compareTo(da);
+          });
+    return List.unmodifiable(list);
+  }
 
   /// Solicitações de um usuário específico (mais recentes primeiro).
   List<RequestModel> requestsOf(int userId) => List.unmodifiable(
@@ -156,7 +137,8 @@ class RequestController extends ChangeNotifier {
     if (needsReapproval) {
       r
         ..status = RequestStatus.pendente
-        ..vehicleId = null;
+        ..vehicleId = null
+        ..clearDecision();
       _notify(
         r,
         NotificationType.reverted,
@@ -183,14 +165,25 @@ class RequestController extends ChangeNotifier {
     }
   }
 
+  /// Aprovador logado (só o perfil Aprovador decide solicitações).
+  UserModel get _approver {
+    final me = UserController.instance.currentUser;
+    if (!me.profile.canApprove) {
+      throw StateError('É necessário ser um Aprovador para aprovar ou recusar solicitações.');
+    }
+    return me;
+  }
+
   /// Aprova a solicitação e aloca o veículo escolhido pelo aprovador.
   /// Não altera o status do veículo: a reserva existe só na agenda.
   void approveRequest(int id, int vehicleId) {
+    final approver = _approver;
     final request = _requests.firstWhere((e) => e.id == id);
     request
       ..status = RequestStatus.aprovada
       ..vehicleId = vehicleId
-      ..rejectionReason = null;
+      ..rejectionReason = null
+      ..recordDecision(approverId: approver.id, approverName: approver.name);
 
     final v = vehicleOf(request);
     _notify(
@@ -207,11 +200,13 @@ class RequestController extends ChangeNotifier {
 
   /// Recusa a solicitação. A justificativa é obrigatória (regra 4.7).
   void rejectRequest(int id, String justification) {
+    final approver = _approver;
     final request = _requests.firstWhere((e) => e.id == id);
     request
       ..status = RequestStatus.recusada
       ..rejectionReason = justification
-      ..vehicleId = null;
+      ..vehicleId = null
+      ..recordDecision(approverId: approver.id, approverName: approver.name);
 
     _notify(request, NotificationType.rejected, 'Motivo: $justification');
     notifyListeners();
@@ -230,7 +225,8 @@ class RequestController extends ChangeNotifier {
       if (requestIds.contains(r.id) && r.status == RequestStatus.aprovada) {
         r
           ..status = RequestStatus.pendente
-          ..vehicleId = null;
+          ..vehicleId = null
+          ..clearDecision();
         _notify(
           r,
           NotificationType.reverted,

@@ -13,6 +13,9 @@ class RequestCard extends StatelessWidget {
   final VoidCallback? onCheckOut;
   final VoidCallback? onCheckIn;
 
+  /// Mostra quem pediu (visão do Aprovador, que vê pedidos de todos).
+  final bool showRequester;
+
   const RequestCard({
     super.key,
     required this.request,
@@ -20,6 +23,7 @@ class RequestCard extends StatelessWidget {
     this.onEdit,
     this.onCheckOut,
     this.onCheckIn,
+    this.showRequester = false,
   });
 
   String _pad(int v) => v.toString().padLeft(2, '0');
@@ -105,11 +109,26 @@ class RequestCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          if (showRequester) ...[
+            _infoRow(Icons.person_outline, 'Solicitante: ${request.requester}'),
+            const SizedBox(height: 4),
+          ],
           _infoRow(Icons.people_outline, '${request.passengers} passageiro(s)'),
           const SizedBox(height: 4),
           _infoRow(Icons.event, 'Saída: ${_fmtDateTime(request.departure)}'),
           const SizedBox(height: 4),
           _infoRow(Icons.calendar_today, 'Retorno: ${_fmtReturn()}'),
+
+          // Quem decidiu e quando (aprovação ou recusa).
+          if (request.approverName != null) ...[
+            const SizedBox(height: 4),
+            _infoRow(
+              Icons.verified_user_outlined,
+              '${request.status == RequestStatus.recusada ? 'Recusada' : 'Aprovada'}'
+              ' por: ${request.approverName}'
+              '${request.decidedAt == null ? '' : ' · ${_fmtDateTime(request.decidedAt)}'}',
+            ),
+          ],
 
           if (isLate) ...[
             const SizedBox(height: 10),

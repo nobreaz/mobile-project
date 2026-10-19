@@ -80,6 +80,50 @@ void main() {
     });
   });
 
+  group('RequestModel JSON e decisão', () {
+    RequestModel sample() => RequestModel(
+      id: 5,
+      requesterId: 3,
+      requester: 'Ana',
+      reason: 'Visita',
+      destination: 'Macaé',
+      passengers: 2,
+      departure: DateTime(2026, 11, 10, 8),
+      returnDate: DateTime(2026, 11, 10),
+      returnPeriod: ReturnPeriod.tarde,
+      status: RequestStatus.aprovada,
+      vehicleId: 1,
+    );
+
+    test('ida e volta preserva os dados (instantes em UTC)', () {
+      final r = sample()..recordDecision(approverId: 2, approverName: 'Bruno');
+      final json = r.toJson();
+
+      expect(json['returnDate'], '2026-11-10');
+      expect(json['departure'], endsWith('Z'));
+      expect(json['approverName'], 'Bruno');
+
+      final copy = RequestModel.fromJson(json);
+      expect(copy.departure, DateTime(2026, 11, 10, 8));
+      expect(copy.returnDeadline, DateTime(2026, 11, 10, 18));
+      expect(copy.toJson(), json);
+    });
+
+    test('voltar para pendente apaga a decisão', () {
+      final r = sample()
+        ..recordDecision(approverId: 2, approverName: 'Bruno')
+        ..clearDecision();
+      expect([r.approverId, r.approverName, r.decidedAt], [null, null, null]);
+    });
+
+    test('aprovadas incluem em uso e finalizadas', () {
+      expect(
+        RequestStatus.values.where((s) => (sample()..status = s).wasApproved),
+        [RequestStatus.aprovada, RequestStatus.emUso, RequestStatus.finalizada],
+      );
+    });
+  });
+
   group('UserModel JSON', () {
     test('ida e volta preserva os dados (validade da CNH só com o dia)', () {
       final original = UserModel(
@@ -100,6 +144,35 @@ void main() {
 
       final copy = UserModel.fromJson(json);
       expect(copy.toJson(), json);
+    });
+  });
+
+  group('Perfis (segregação de funções)', () {
+    test('cada função pertence a um único perfil', () {
+      expect(UserProfile.values.where((p) => p.canRequest), [
+        UserProfile.padrao,
+      ]);
+      expect(UserProfile.values.where((p) => p.canApprove), [
+        UserProfile.aprovador,
+      ]);
+      expect(UserProfile.values.where((p) => p.canManageRegistry), [
+        UserProfile.administrador,
+      ]);
+    });
+
+    test('aprovador com CNH válida ainda assim não solicita', () {
+      final approver = UserModel(
+        id: 1,
+        name: 'A',
+        email: 'a@b.com',
+        role: 'r',
+        department: 'd',
+        cnhNumber: '1',
+        cnhExpiry: DateTime.now().add(const Duration(days: 365)),
+        profile: UserProfile.aprovador,
+      );
+      expect(approver.hasValidCnh, isTrue);
+      expect(approver.canRequestVehicle, isFalse);
     });
   });
 

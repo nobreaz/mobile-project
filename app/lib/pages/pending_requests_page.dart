@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:project/core/components/pending_request_card.dart';
+import 'package:project/core/components/request_card.dart';
 import 'package:project/core/controllers/request_controller.dart';
+import 'package:project/core/controllers/user_controller.dart';
 import 'package:project/core/models/request_model.dart';
 import 'package:project/core/models/vehicle_model.dart';
 import 'package:project/core/theme/app_colors.dart';
 
-/// Tela do aprovador: lista as solicitações pendentes e permite
-/// aprovar (alocando um veículo) ou recusar (com justificativa).
+/// Tela do aprovador, em abas:
+/// - Pendentes: aprovar (alocando um veículo) ou recusar (com justificativa).
+/// - Aprovadas / Recusadas: decisões de todos os aprovadores, com
+///   "Aprovada por" e o filtro "Só as minhas".
 /// Requisitos 3.3.3, 3.3.4 e regras 4.1 / 4.7 do documento.
-class PendingRequestsPage extends StatelessWidget {
+class PendingRequestsPage extends StatefulWidget {
   const PendingRequestsPage({super.key});
+
+  @override
+  State<PendingRequestsPage> createState() => _PendingRequestsPageState();
+}
+
+class _PendingRequestsPageState extends State<PendingRequestsPage> {
+  /// "Só as minhas": decisões do aprovador logado.
+  bool _onlyMine = false;
 
   /// Fluxo de aprovação: o aprovador escolhe o veículo a alocar.
   /// A lista já vem filtrada e ordenada pela regra RN 4.1.
@@ -33,10 +45,8 @@ class PendingRequestsPage extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (sheetContext) => _VehiclePicker(
-        vehicles: eligible,
-        passengers: request.passengers,
-      ),
+      builder: (sheetContext) =>
+          _VehiclePicker(vehicles: eligible, passengers: request.passengers),
     );
 
     if (selected == null) return;
@@ -115,62 +125,138 @@ class PendingRequestsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Solicitações Pendentes',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'Solicitações',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+          ),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          bottom: const TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
+            labelStyle: TextStyle(fontWeight: FontWeight.w700),
+            tabs: [
+              Tab(text: 'Pendentes'),
+              Tab(text: 'Aprovadas'),
+              Tab(text: 'Recusadas'),
+            ],
+          ),
         ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
-      backgroundColor: AppColors.background,
-      body: AnimatedBuilder(
-        animation: RequestController.instance,
-        builder: (context, _) {
-          final pending = RequestController.instance.pendingRequests;
-
-          if (pending.isEmpty) {
-            return _emptyState();
-          }
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(20),
-            itemCount: pending.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 16),
-            itemBuilder: (context, index) {
-              final request = pending[index];
-              return PendingRequestCard(
-                request: request,
-                onApprove: () => _approve(context, request),
-                onReject: () => _reject(context, request),
-              );
-            },
-          );
-        },
+        backgroundColor: AppColors.background,
+        body: AnimatedBuilder(
+          animation: RequestController.instance,
+          builder: (context, _) => TabBarView(
+            children: [
+              _pendingTab(),
+              _decidedTab(approved: true),
+              _decidedTab(approved: false),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _emptyState() {
-    return const Center(
+  Widget _pendingTab() {
+    final pending = RequestController.instance.pendingRequests;
+    if (pending.isEmpty) {
+      return _emptyState(
+        icon: Icons.task_alt,
+        title: 'Nenhuma solicitação pendente',
+        subtitle: 'Tudo em dia por aqui.',
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(20),
+      itemCount: pending.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final request = pending[index];
+        return PendingRequestCard(
+          request: request,
+          onApprove: () => _approve(context, request),
+          onReject: () => _reject(context, request),
+        );
+      },
+    );
+  }
+
+  /// Aprovadas (inclui em uso e finalizadas) ou recusadas.
+  Widget _decidedTab({required bool approved}) {
+    final me = UserController.instance.currentUser;
+    final list = RequestController.instance.decidedRequests(
+      approved: approved,
+      approverId: _onlyMine ? me.id : null,
+    );
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FilterChip(
+              label: const Text('Só as minhas'),
+              selected: _onlyMine,
+              onSelected: (v) => setState(() => _onlyMine = v),
+              selectedColor: AppColors.primary.withValues(alpha: 0.15),
+              checkmarkColor: AppColors.primary,
+            ),
+          ),
+        ),
+        Expanded(
+          child: list.isEmpty
+              ? _emptyState(
+                  icon: approved ? Icons.check_circle_outline : Icons.block,
+                  title: approved
+                      ? 'Nenhuma solicitação aprovada'
+                      : 'Nenhuma solicitação recusada',
+                  subtitle: _onlyMine
+                      ? 'Nada decidido por você ainda.'
+                      : 'As decisões de todos os aprovadores aparecem aqui.',
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: list.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) =>
+                      RequestCard(request: list[index], showRequester: true),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _emptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.task_alt, size: 72, color: AppColors.iconMuted),
-          SizedBox(height: 12),
+          Icon(icon, size: 72, color: AppColors.iconMuted),
+          const SizedBox(height: 12),
           Text(
-            'Nenhuma solicitação pendente',
-            style: TextStyle(
+            title,
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: AppColors.textMuted,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
-            'Tudo em dia por aqui.',
-            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -207,10 +293,7 @@ class _VehiclePicker extends StatelessWidget {
             child: Text(
               'Disponíveis com pelo menos $passengers lugar(es), '
               'ordenados por menor quilometragem.',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textMuted,
-              ),
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
           ),
           const Divider(height: 1),

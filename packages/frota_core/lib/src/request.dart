@@ -114,6 +114,12 @@ class RequestModel {
   String? checkOutNotes;
   String? checkInNotes;
 
+  /// Aprovador que decidiu (aprovou ou recusou) e quando.
+  /// Nulos enquanto pendente; apagados se a solicitação voltar a pendente.
+  int? approverId;
+  String? approverName;
+  DateTime? decidedAt;
+
   RequestModel({
     required this.id,
     required this.reason,
@@ -133,7 +139,98 @@ class RequestModel {
     this.checkInAt,
     this.checkOutNotes,
     this.checkInNotes,
+    this.approverId,
+    this.approverName,
+    this.decidedAt,
   });
+
+  /// Formato JSON trocado entre a API e o app.
+  /// Momentos (saída, check-out...) vão em ISO 8601 UTC e voltam no fuso
+  /// local; a data de retorno é só o dia (`AAAA-MM-DD`).
+  factory RequestModel.fromJson(Map<String, dynamic> json) {
+    DateTime? instant(String key) {
+      final v = json[key] as String?;
+      return v == null ? null : DateTime.parse(v).toLocal();
+    }
+
+    final returnDate = json['returnDate'] as String?;
+    final period = json['returnPeriod'] as String?;
+    return RequestModel(
+      id: json['id'] as int,
+      requesterId: json['requesterId'] as int,
+      requester: json['requester'] as String,
+      reason: json['reason'] as String,
+      destination: json['destination'] as String,
+      passengers: json['passengers'] as int,
+      departure: instant('departure'),
+      returnDate: returnDate == null ? null : DateTime.parse(returnDate),
+      returnPeriod: period == null ? null : ReturnPeriod.values.byName(period),
+      status: RequestStatus.values.byName(json['status'] as String),
+      vehicleId: json['vehicleId'] as int?,
+      rejectionReason: json['rejectionReason'] as String?,
+      departureMileage: json['departureMileage'] as int?,
+      returnMileage: json['returnMileage'] as int?,
+      checkOutAt: instant('checkOutAt'),
+      checkInAt: instant('checkInAt'),
+      checkOutNotes: json['checkOutNotes'] as String?,
+      checkInNotes: json['checkInNotes'] as String?,
+      approverId: json['approverId'] as int?,
+      approverName: json['approverName'] as String?,
+      decidedAt: instant('decidedAt'),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    String? instant(DateTime? d) => d?.toUtc().toIso8601String();
+    final date = returnDate;
+    return {
+      'id': id,
+      'requesterId': requesterId,
+      'requester': requester,
+      'reason': reason,
+      'destination': destination,
+      'passengers': passengers,
+      'departure': instant(departure),
+      'returnDate': date == null
+          ? null
+          : '${date.year.toString().padLeft(4, '0')}-'
+                '${date.month.toString().padLeft(2, '0')}-'
+                '${date.day.toString().padLeft(2, '0')}',
+      'returnPeriod': returnPeriod?.name,
+      'status': status.name,
+      'vehicleId': vehicleId,
+      'rejectionReason': rejectionReason,
+      'departureMileage': departureMileage,
+      'returnMileage': returnMileage,
+      'checkOutAt': instant(checkOutAt),
+      'checkInAt': instant(checkInAt),
+      'checkOutNotes': checkOutNotes,
+      'checkInNotes': checkInNotes,
+      'approverId': approverId,
+      'approverName': approverName,
+      'decidedAt': instant(decidedAt),
+    };
+  }
+
+  /// Registra a decisão do aprovador (aprovação ou recusa).
+  void recordDecision({required int approverId, required String approverName}) {
+    this.approverId = approverId;
+    this.approverName = approverName;
+    decidedAt = DateTime.now();
+  }
+
+  /// Volta para pendente: a decisão anterior deixa de valer.
+  void clearDecision() {
+    approverId = null;
+    approverName = null;
+    decidedAt = null;
+  }
+
+  /// Já passou pela aprovação (aprovada, em uso ou finalizada).
+  bool get wasApproved =>
+      status == RequestStatus.aprovada ||
+      status == RequestStatus.emUso ||
+      status == RequestStatus.finalizada;
 
   /// Prazo exato de devolução: data de retorno + horário do período.
   DateTime? get returnDeadline {

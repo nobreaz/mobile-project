@@ -26,61 +26,77 @@ class HomePageAction {
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  List<HomePageAction> _gridActions(BuildContext context, bool isApprover) {
-    final actions = <HomePageAction>[
-      HomePageAction(
-        label: 'Nova Solicitação',
-        icon: Icons.add_circle_outline,
-        onPressed: () => Navigator.of(context).pushNamed('/new-request'),
-      ),
-      HomePageAction(
-        label: 'Minhas Solicitações',
-        icon: Icons.list_alt,
-        onPressed: () => Navigator.of(context).pushNamed('/my-requests'),
-      ),
-      HomePageAction(
-        label: 'Agenda',
-        icon: Icons.calendar_month,
-        onPressed: () => Navigator.of(context).pushNamed('/agenda'),
-      ),
-    ];
+  /// Cards de cada perfil (segregação de funções, ver UserProfile):
+  /// - Padrão: solicita e acompanha as próprias viagens.
+  /// - Aprovador: decide solicitações e consulta a frota (sem editar).
+  /// - Administrador: cadastra veículos e usuários.
+  /// Configurações fica no grid do Padrão e num botão largo nos demais.
+  List<HomePageAction> _gridActions(BuildContext context, UserProfile profile) {
+    void go(String route) => Navigator.of(context).pushNamed(route);
 
-    if (isApprover) {
-      actions.addAll([
-        HomePageAction(
-          label: 'Ver Relatórios',
-          icon: Icons.bar_chart,
-          onPressed: () {},
-          comingSoon: true,
-        ),
-        HomePageAction(
-          label: 'Gestão de Veículos',
-          icon: Icons.directions_car,
-          onPressed: () => Navigator.of(context).pushNamed('/vehicles'),
-        ),
-        HomePageAction(
-          label: 'Solicitações Pendentes',
-          icon: Icons.pending_actions,
-          onPressed: () => Navigator.of(context).pushNamed('/pending-requests'),
-        ),
-        HomePageAction(
-          label: 'Gestão de Usuários',
-          icon: Icons.people_outline,
-          onPressed: () => Navigator.of(context).pushNamed('/users'),
-        ),
-      ]);
-    } else {
-      // Usuário padrão: Configurações fica dentro do grid.
-      actions.add(
-        HomePageAction(
-          label: 'Configurações',
-          icon: Icons.settings,
-          onPressed: () => Navigator.of(context).pushNamed('/settings'),
-        ),
-      );
+    final agenda = HomePageAction(
+      label: 'Agenda',
+      icon: Icons.calendar_month,
+      onPressed: () => go('/agenda'),
+    );
+    final reports = HomePageAction(
+      label: 'Ver Relatórios',
+      icon: Icons.bar_chart,
+      onPressed: () {},
+      comingSoon: true,
+    );
+
+    switch (profile) {
+      case UserProfile.padrao:
+        return [
+          HomePageAction(
+            label: 'Nova Solicitação',
+            icon: Icons.add_circle_outline,
+            onPressed: () => go('/new-request'),
+          ),
+          HomePageAction(
+            label: 'Minhas Solicitações',
+            icon: Icons.list_alt,
+            onPressed: () => go('/my-requests'),
+          ),
+          agenda,
+          HomePageAction(
+            label: 'Configurações',
+            icon: Icons.settings,
+            onPressed: () => go('/settings'),
+          ),
+        ];
+      case UserProfile.aprovador:
+        return [
+          HomePageAction(
+            label: 'Solicitações',
+            icon: Icons.pending_actions,
+            onPressed: () => go('/pending-requests'),
+          ),
+          agenda,
+          HomePageAction(
+            label: 'Frota',
+            icon: Icons.directions_car,
+            onPressed: () => go('/vehicles'),
+          ),
+          reports,
+        ];
+      case UserProfile.administrador:
+        return [
+          HomePageAction(
+            label: 'Gestão de Veículos',
+            icon: Icons.directions_car,
+            onPressed: () => go('/vehicles'),
+          ),
+          HomePageAction(
+            label: 'Gestão de Usuários',
+            icon: Icons.people_outline,
+            onPressed: () => go('/users'),
+          ),
+          agenda,
+          reports,
+        ];
     }
-
-    return actions;
   }
 
   @override
@@ -89,8 +105,8 @@ class HomePage extends StatelessWidget {
       animation: UserController.instance,
       builder: (context, _) {
         final user = UserController.instance.currentUser;
-        final isApprover = user.profile == UserProfile.aprovador;
-        final actions = _gridActions(context, isApprover);
+        final wideSettings = user.profile != UserProfile.padrao;
+        final actions = _gridActions(context, user.profile);
         final firstName = user.name.trim().split(RegExp(r'\s+')).first;
 
         return Scaffold(
@@ -152,7 +168,7 @@ class HomePage extends StatelessWidget {
                             },
                           ),
                         ),
-                        if (isApprover) ...[
+                        if (wideSettings) ...[
                           const SizedBox(height: 16),
                           HomePageWideActionButton(
                             label: 'Configurações',

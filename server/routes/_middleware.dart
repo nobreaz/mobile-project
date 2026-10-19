@@ -1,6 +1,7 @@
 import 'package:dart_frog/dart_frog.dart';
 import 'package:frota_server/src/middleware.dart';
 import 'package:frota_server/src/services.dart';
+import 'package:frota_server/src/solicitacoes_repository.dart';
 import 'package:frota_server/src/supabase_auth.dart';
 import 'package:frota_server/src/usuarios_repository.dart';
 
@@ -9,6 +10,7 @@ import 'package:frota_server/src/usuarios_repository.dart';
 Handler middleware(Handler handler) {
   return handler
       .use(provider<UsuariosRepository>((_) => Services().usuarios))
+      .use(provider<SolicitacoesRepository>((_) => Services().solicitacoes))
       .use(provider<SupabaseAuth>((_) => Services().auth))
       .use(errorHandler())
       .use(cors());

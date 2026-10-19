@@ -84,8 +84,16 @@ class _NewRequestPageState extends State<NewRequestPage> {
   void _submit() {
     final user = UserController.instance.currentUser;
 
+    // Segregação de funções: só o perfil Padrão solicita veículo.
+    if (!user.profile.canRequest) {
+      _showMessage(
+        'É necessário ter o perfil Padrão para solicitar veículos. Perfil atual: ${user.profile.label}.',
+      );
+      return;
+    }
+
     // Regra 5.2.4: CNH vencida ou não cadastrada não pode solicitar.
-    if (!user.canRequestVehicle) {
+    if (!user.hasValidCnh) {
       _showMessage(
         'Sua CNH está vencida ou não cadastrada. '
         'Procure o setor Administrativo.',
@@ -157,7 +165,7 @@ class _NewRequestPageState extends State<NewRequestPage> {
       );
       _showMessage(
         reverted
-            ? 'Solicitação alterada. Ela voltou para aprovação.'
+            ? 'Solicitação alterada e retornada para aprovação'
             : 'Solicitação atualizada.',
       );
       Navigator.of(context).pop();
@@ -211,7 +219,8 @@ class _NewRequestPageState extends State<NewRequestPage> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 20),
-                        if (!user.canRequestVehicle) ...[
+                        if (user.profile.canRequest &&
+                            !user.hasValidCnh) ...[
                           _cnhBlockedWarning(user),
                           const SizedBox(height: 10),
                         ],

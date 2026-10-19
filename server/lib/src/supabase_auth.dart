@@ -6,7 +6,8 @@ import 'package:http/http.dart' as http;
 /// Conversa com o Supabase Auth (login, senhas e bloqueio de acesso).
 ///
 /// O app faz login direto no Supabase e manda o token para a API.
-/// Aqui a API só confere o token e, para o Aprovador, cria e bloqueia logins.
+/// Aqui a API só confere o token e, para o Administrador, cria e bloqueia
+/// logins.
 class SupabaseAuth {
   SupabaseAuth({
     required this._url,
@@ -69,7 +70,7 @@ class SupabaseAuth {
   }
 
   /// Cria o login (e-mail já confirmado) com a senha inicial definida pelo
-  /// Aprovador. Devolve o id do login.
+  /// Administrador. Devolve o id do login.
   Future<String> createUser({
     required String email,
     required String password,

@@ -14,7 +14,7 @@ Matcher _apiError(int status) =>
 void main() {
   late MockUsuariosRepository repository;
   late MockSupabaseAuth auth;
-  final approver = user(profile: UserProfile.aprovador);
+  final admin = user(profile: UserProfile.administrador);
 
   setUpAll(() => registerFallbackValue(user()));
 
@@ -46,7 +46,7 @@ void main() {
           jsonRequest('POST', '/usuarios', body),
           repository: repository,
           auth: auth,
-          me: approver,
+          me: admin,
         ),
       );
 
@@ -103,14 +103,14 @@ void main() {
   });
 
   group('PATCH /usuarios/{id}', () {
-    test('aprovador não pode desativar a si mesmo → 403', () {
+    test('administrador não pode desativar a si mesmo → 403', () {
       expect(
         () => usuario_route.onRequest(
           contextFor(
             jsonRequest('PATCH', '/usuarios/1', {'active': false}),
             repository: repository,
             auth: auth,
-            me: approver,
+            me: admin,
           ),
           '1',
         ),
@@ -134,7 +134,7 @@ void main() {
           jsonRequest('PATCH', '/usuarios/2', {'active': false}),
           repository: repository,
           auth: auth,
-          me: approver,
+          me: admin,
         ),
         '2',
       );
@@ -152,7 +152,7 @@ void main() {
             jsonRequest('PATCH', '/usuarios/99', {'name': 'X'}),
             repository: repository,
             auth: auth,
-            me: approver,
+            me: admin,
           ),
           '99',
         ),

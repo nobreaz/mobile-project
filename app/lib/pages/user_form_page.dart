@@ -195,7 +195,7 @@ class _UserFormPageState extends State<UserFormPage> {
               InputTextField(
                 label: 'Nº da CNH',
                 type: InputFieldType.number,
-                hint: 'Sem CNH válida, não pode solicitar veículo',
+                hint: 'Obrigatória para o perfil Padrão',
                 inputText: cnhNumber,
                 onChanged: (t) => cnhNumber = t,
               ),

@@ -35,11 +35,18 @@ Future<void> main() async {
       detail: 'tabelas: ${names.join(', ')}',
     );
 
-    final approvers = await db.execute(
-      "SELECT count(*) FROM usuarios WHERE perfil = 'aprovador' AND ativo",
+    final profiles = await db.execute(
+      'SELECT perfil::text, count(*) FROM usuarios WHERE ativo '
+      'GROUP BY perfil ORDER BY 1',
     );
-    final count = approvers.first.first! as int;
-    check('Aprovador ativo cadastrado', passed: count > 0, detail: '$count');
+    final counts = {
+      for (final row in profiles) row[0]! as String: row[1]! as int,
+    };
+    check(
+      'Administrador ativo cadastrado',
+      passed: (counts['administrador'] ?? 0) > 0,
+      detail: 'usuários ativos por perfil: $counts',
+    );
   } on Object catch (e) {
     check('Conexão com o banco', passed: false, detail: '$e');
   } finally {

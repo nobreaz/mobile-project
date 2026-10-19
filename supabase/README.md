@@ -16,9 +16,16 @@ App ──login──► Supabase Auth ──token──► App ──token─�
 2. Guarde a **senha do banco** que você definir (vai no `DATABASE_URL`).
 
 ### 2. Criar as tabelas
-**Sem a CLI:** abra **SQL Editor**, cole o conteúdo de `migrations/20261019120000_esquema_inicial.sql` e clique em **Run**.
+Aplique **cada arquivo de `migrations/`, um por vez, em ordem de data**. Há três formas:
+- **SQL Editor** do painel: cole o conteúdo do arquivo e clique em **Run**.
+- **Pela API** (depois do passo 4): dentro de `server/`, rode `dart run tool/aplicar_sql.dart ../supabase/migrations/ARQUIVO.sql`.
+- **Com a CLI** (requer Node.js): `npx supabase link --project-ref SEU_PROJETO` e depois `npx supabase db push`.
 
-**Com a CLI** (requer Node.js): `npx supabase link --project-ref SEU_PROJETO` e depois `npx supabase db push`.
+| Migration | O que faz |
+|---|---|
+| `20261019120000_esquema_inicial.sql` | Tabelas, tipos e regras 4.3, 4.4, 4.7 e 4.8 |
+| `20261019180000_perfil_administrador.sql` | Perfil Administrador |
+| `20261019190000_decisao_solicitacao.sql` | Quem aprovou ou recusou e quando (`aprovador_id`, `decidido_em`) |
 
 ### 3. Ajustar o login
 Em **Authentication → Sign In / Providers**:
@@ -37,17 +44,28 @@ Copie `server/.env.example` para `server/.env` e preencha:
 
 Use o **Session pooler** e não a conexão direta: a conexão direta só funciona em IPv6, e muitas redes e hospedagens não suportam.
 
-### 5. Criar o primeiro Aprovador
-Como só um Aprovador pode cadastrar usuários, o primeiro é criado à mão:
+### 5. Criar o primeiro Administrador
+Como só o Administrador cadastra usuários, o primeiro é criado à mão:
 1. **Authentication → Users → Add user → Create new user**: e-mail e senha, marcando **Auto Confirm User**.
 2. No **SQL Editor**, rode trocando os dados:
 ```sql
 insert into usuarios (auth_id, nome, email, cargo, setor, perfil)
-select id, 'Seu Nome', email, 'Seu Cargo', 'Administrativo', 'aprovador'
+select id, 'Seu Nome', email, 'Seu Cargo', 'Administrativo', 'administrador'
 from auth.users
 where email = 'seu.email@empresa.com';
 ```
-Depois disso, os demais usuários são cadastrados pelo app ou pela API (`POST /usuarios`).
+Depois disso, ele cadastra os Aprovadores e os usuários Padrão pelo app (Gestão de Usuários).
+
+Para conferir tudo: dentro de `server/`, rode `dart run tool/verificar_conexao.dart`.
+
+## Perfis (um por pessoa)
+| Perfil | Faz | Não faz |
+|---|---|---|
+| Padrão | solicita veículo, check-out e check-in | aprovar, cadastrar |
+| Aprovador | aprova ou recusa e aloca veículo; consulta a frota | solicitar (ninguém aprova o próprio pedido), cadastrar |
+| Administrador | cadastra veículos e usuários | solicitar, aprovar |
+
+Quem precisar de dois papéis usa duas contas, com e-mails diferentes.
 
 ## Decisões do esquema
 - **Login separado do cadastro.** `auth.users` (Supabase) guarda e-mail e senha; `usuarios` guarda perfil, cargo, CNH etc., ligados por `auth_id`.

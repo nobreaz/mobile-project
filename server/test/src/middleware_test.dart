@@ -92,21 +92,25 @@ void main() {
     });
   });
 
-  group('requireApprover', () {
-    test('perfil padrão → 403', () {
-      final context = contextFor(
-        jsonRequest('GET', '/usuarios'),
-        me: user(),
-      );
-      expect(() => requireApprover()(ok)(context), _apiError(403));
-    });
+  group('requireProfile (gestão de usuários: só administrador)', () {
+    final onlyAdmin = requireProfile({UserProfile.administrador});
 
-    test('aprovador segue', () async {
+    for (final profile in [UserProfile.padrao, UserProfile.aprovador]) {
+      test('${profile.label} → 403', () {
+        final context = contextFor(
+          jsonRequest('GET', '/usuarios'),
+          me: user(profile: profile),
+        );
+        expect(() => onlyAdmin(ok)(context), _apiError(403));
+      });
+    }
+
+    test('Administrador segue', () async {
       final context = contextFor(
         jsonRequest('GET', '/usuarios'),
-        me: user(profile: UserProfile.aprovador),
+        me: user(profile: UserProfile.administrador),
       );
-      expect((await requireApprover()(ok)(context)).statusCode, 200);
+      expect((await onlyAdmin(ok)(context)).statusCode, 200);
     });
   });
 

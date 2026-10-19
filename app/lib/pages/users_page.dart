@@ -6,7 +6,7 @@ import 'package:project/core/theme/app_colors.dart';
 import 'package:project/pages/user_detail_page.dart';
 import 'package:project/pages/user_form_page.dart';
 
-/// Tela "Gestão de Usuários" — visão do aprovador sobre os colaboradores.
+/// Tela "Gestão de Usuários" — visão do Administrador sobre os colaboradores.
 class UsersPage extends StatefulWidget {
   const UsersPage({super.key});
 
@@ -178,8 +178,8 @@ class _UsersPageState extends State<UsersPage> {
                           count == 1 ? '1 solicitação' : '$count solicitações',
                           AppColors.primary,
                         ),
-                        if (user.profile == UserProfile.aprovador)
-                          _chip('Aprovador', AppColors.primaryDark),
+                        if (user.profile != UserProfile.padrao)
+                          _chip(user.profile.label, AppColors.primaryDark),
                         if (!user.active) _chip('Inativo', AppColors.rejected),
                       ],
                     ),

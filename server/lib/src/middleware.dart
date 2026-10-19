@@ -88,12 +88,13 @@ Middleware requireUser() {
       );
       if (user == null) {
         throw const ApiException.forbidden(
-          'Seu login não está vinculado a um cadastro. Procure o Aprovador.',
+          'Seu login não está vinculado a um cadastro. '
+          'Procure o Administrador.',
         );
       }
       if (!user.active) {
         throw const ApiException.forbidden(
-          'Seu acesso está desativado. Procure o Aprovador.',
+          'Seu acesso está desativado. Procure o Administrador.',
         );
       }
 
@@ -102,14 +103,15 @@ Middleware requireUser() {
   };
 }
 
-/// Só o perfil Aprovador passa (RF 3.1.2 e RNF 6.3).
+/// Só passa quem tem um dos [allowed] perfis (RF 3.1.2 e RNF 6.3).
 /// Usar sempre DENTRO de [requireUser].
-Middleware requireApprover() {
+Middleware requireProfile(Set<UserProfile> allowed) {
+  final names = allowed.map((p) => p.label).join(' ou ');
   return (handler) {
     return (context) {
-      if (context.read<UserModel>().profile != UserProfile.aprovador) {
-        throw const ApiException.forbidden(
-          'Apenas o perfil Aprovador pode acessar este recurso.',
+      if (!allowed.contains(context.read<UserModel>().profile)) {
+        throw ApiException.forbidden(
+          'Apenas o perfil $names pode acessar este recurso.',
         );
       }
       return handler(context);

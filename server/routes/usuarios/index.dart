@@ -7,7 +7,7 @@ import 'package:frota_server/src/supabase_auth.dart';
 import 'package:frota_server/src/user_input.dart';
 import 'package:frota_server/src/usuarios_repository.dart';
 
-/// `/usuarios` (só Aprovador).
+/// `/usuarios` (só Administrador).
 /// - GET: lista todos os usuários (ativos primeiro).
 /// - POST: cadastra um colaborador e cria o login dele (RF 3.1.3).
 Future<Response> onRequest(RequestContext context) async {

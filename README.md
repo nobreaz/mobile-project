@@ -21,10 +21,13 @@ O banco (PostgreSQL) e o login ficam no **Supabase**. Para configurar do zero, v
 | `GET /health` | público | API no ar |
 | `GET /me` | logado | dados do usuário logado |
 | `PATCH /me` | logado | altera o próprio telefone |
-| `GET /usuarios` | Aprovador | lista os usuários |
-| `POST /usuarios` | Aprovador | cadastra colaborador e cria o login (senha inicial) |
-| `GET /usuarios/{id}` | Aprovador | detalhe |
-| `PATCH /usuarios/{id}` | Aprovador | altera dados e perfil, ativa ou desativa (nunca apaga) |
+| `GET /usuarios` | Administrador | lista os usuários |
+| `POST /usuarios` | Administrador | cadastra colaborador e cria o login (senha inicial) |
+| `GET /usuarios/{id}` | Administrador | detalhe |
+| `PATCH /usuarios/{id}` | Administrador | altera dados e perfil, ativa ou desativa (nunca apaga) |
+| `GET /solicitacoes` | logado | Padrão vê só as próprias; Aprovador e Administrador veem todas. Filtros: `status=aprovada,emUso`, `aprovadorId=7` |
+
+Perfis e permissões: veja [supabase/README.md](supabase/README.md#perfis-um-por-pessoa).
 
 Rotas protegidas exigem o cabeçalho `Authorization: Bearer <token do Supabase>`. Erros sempre vêm como `{"erro": "...", "campos": {...}}`.
 

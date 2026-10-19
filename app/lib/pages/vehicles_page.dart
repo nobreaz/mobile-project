@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:project/core/components/vehicle_card.dart';
 import 'package:project/core/controllers/request_controller.dart';
+import 'package:project/core/controllers/user_controller.dart';
+import 'package:project/core/models/user_model.dart';
 import 'package:project/core/controllers/vehicle_controller.dart';
 import 'package:project/core/models/request_model.dart';
 import 'package:project/core/models/vehicle_model.dart';
@@ -84,33 +86,39 @@ class VehiclesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Só o Administrador altera a frota; o Aprovador apenas consulta.
+    final canEdit =
+        UserController.instance.currentUser.profile.canManageRegistry;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Gestão de Veículos',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        title: Text(
+          canEdit ? 'Gestão de Veículos' : 'Frota',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
       backgroundColor: AppColors.background,
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        onPressed: () => _openForm(context),
-        icon: const Icon(Icons.add),
-        label: const Text(
-          'Cadastrar',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
+      floatingActionButton: canEdit
+          ? FloatingActionButton.extended(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              onPressed: () => _openForm(context),
+              icon: const Icon(Icons.add),
+              label: const Text(
+                'Cadastrar',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            )
+          : null,
       body: AnimatedBuilder(
         animation: VehicleController.instance,
         builder: (context, _) {
           final vehicles = VehicleController.instance.vehicles;
 
           if (vehicles.isEmpty) {
-            return _emptyState();
+            return _emptyState(canEdit);
           }
 
           return ListView.separated(
@@ -121,8 +129,12 @@ class VehiclesPage extends StatelessWidget {
               final vehicle = vehicles[index];
               return VehicleCard(
                 vehicle: vehicle,
-                onEdit: () => _openForm(context, vehicle: vehicle),
-                onToggleActive: () => _toggleActive(context, vehicle),
+                onEdit: canEdit
+                    ? () => _openForm(context, vehicle: vehicle)
+                    : null,
+                onToggleActive: canEdit
+                    ? () => _toggleActive(context, vehicle)
+                    : null,
               );
             },
           );
@@ -131,18 +143,18 @@ class VehiclesPage extends StatelessWidget {
     );
   }
 
-  Widget _emptyState() {
-    return const Center(
+  Widget _emptyState(bool canEdit) {
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.directions_car_outlined,
             size: 72,
             color: AppColors.iconMuted,
           ),
-          SizedBox(height: 12),
-          Text(
+          const SizedBox(height: 12),
+          const Text(
             'Nenhum veículo cadastrado',
             style: TextStyle(
               fontSize: 16,
@@ -150,10 +162,12 @@ class VehiclesPage extends StatelessWidget {
               color: AppColors.textMuted,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
-            'Toque em "Cadastrar" para adicionar o primeiro.',
-            style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+            canEdit
+                ? 'Toque em "Cadastrar" para adicionar o primeiro.'
+                : 'O cadastro de veículos é feito pelo Administrador.',
+            style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
           ),
         ],
       ),

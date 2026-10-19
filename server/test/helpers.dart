@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dart_frog/dart_frog.dart';
 import 'package:frota_core/frota_core.dart';
+import 'package:frota_server/src/solicitacoes_repository.dart';
 import 'package:frota_server/src/supabase_auth.dart';
 import 'package:frota_server/src/usuarios_repository.dart';
 import 'package:mocktail/mocktail.dart';
@@ -11,6 +12,9 @@ class MockRequestContext extends Mock implements RequestContext {}
 class MockUsuariosRepository extends Mock implements UsuariosRepository {}
 
 class MockSupabaseAuth extends Mock implements SupabaseAuth {}
+
+class MockSolicitacoesRepository extends Mock
+    implements SolicitacoesRepository {}
 
 UserModel user({
   int id = 1,
@@ -32,9 +36,13 @@ MockRequestContext contextFor(
   UsuariosRepository? repository,
   SupabaseAuth? auth,
   UserModel? me,
+  SolicitacoesRepository? requests,
 }) {
   final context = MockRequestContext();
   when(() => context.request).thenReturn(request);
+  if (requests != null) {
+    when(() => context.read<SolicitacoesRepository>()).thenReturn(requests);
+  }
   if (repository != null) {
     when(() => context.read<UsuariosRepository>()).thenReturn(repository);
   }
