@@ -1,0 +1,6 @@
+include: package:dart_frog_lint/recommended.yaml
+
+linter:
+  rules:
+    # Pensada para bibliotecas publicadas; aqui documentamos o que não é óbvio.
+    public_member_api_docs: false
