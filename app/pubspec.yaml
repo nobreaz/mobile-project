@@ -41,6 +41,8 @@ dependencies:
   # Domínio compartilhado com a API (modelos, enums e regras em Dart puro).
   frota_core:
     path: ../packages/frota_core
+  supabase_flutter: ^2.18.3
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

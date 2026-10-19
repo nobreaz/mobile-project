@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:project/core/components/app_button_variant.dart';
+import 'package:project/core/controllers/user_controller.dart';
+import 'package:project/core/services/api_client.dart';
 
 import '../../../core/components/app_logo.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -16,6 +18,30 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   String email = '';
   String senha = '';
+  bool _loading = false;
+
+  Future<void> _login() async {
+    if (_loading) return;
+    if (email.trim().isEmpty || senha.isEmpty) {
+      _show('Informe e-mail e senha.');
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      await UserController.instance.signIn(email, senha);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/home');
+    } on ApiError catch (e) {
+      _show(e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _show(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,9 +81,8 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
                   AppButton(
                     variant: AppButtonVariant.login,
-                    label: 'Entrar',
-                    onPressed: () =>
-                        Navigator.of(context).pushReplacementNamed('/home'),
+                    label: _loading ? 'Entrando...' : 'Entrar',
+                    onPressed: _login,
                   ),
                   const SizedBox(height: 10),
                   TextButton(

@@ -16,7 +16,13 @@ import 'package:project/pages/users_page.dart';
 import 'package:project/pages/vehicles_page.dart';
 
 class AppWidget extends StatelessWidget {
-  const AppWidget({super.key});
+  /// '/' (login) ou '/home' quando já existe uma sessão salva.
+  final String initialRoute;
+
+  const AppWidget({super.key, this.initialRoute = '/'});
+
+  /// Permite navegar de fora das telas (ex.: sessão expirou → login).
+  static final navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +30,7 @@ class AppWidget extends StatelessWidget {
       animation: AppController.instance,
       builder: (context, child) {
         return MaterialApp(
+          navigatorKey: navigatorKey,
           theme: ThemeData(
             primarySwatch: Colors.blue,
             fontFamily: AppTextStyles.fontFamily, // Instrument Sans no app todo
@@ -31,24 +38,33 @@ class AppWidget extends StatelessWidget {
                 ? Brightness.dark
                 : Brightness.light,
           ),
-          initialRoute: '/',
-          routes: {
-            '/': (context) => const LoginPage(),
-            '/reset-password': (context) => const ResetPasswordPage(),
-            '/home': (context) => const HomePage(),
-            '/new-request': (context) => const NewRequestPage(),
-            '/my-requests': (context) => const MyRequestsPage(),
-            '/agenda': (context) => const AgendaPage(),
-            '/vehicles': (context) => const VehiclesPage(),
-            '/pending-requests': (context) => const PendingRequestsPage(),
-            '/users': (context) => const UsersPage(),
-            '/settings': (context) => const SettingsPage(),
-            '/change-password': (context) => const ChangePasswordPage(),
-            '/notifications': (context) => const NotificationsPage(),
-            '/my-data': (context) => const MyDataPage(),
-          },
+          initialRoute: initialRoute,
+          // Abre SÓ a rota inicial (sem empilhar o login embaixo da home).
+          onGenerateInitialRoutes: (name) => [
+            MaterialPageRoute(
+              settings: RouteSettings(name: name),
+              builder: _routes[name] ?? _routes['/']!,
+            ),
+          ],
+          routes: _routes,
         );
       },
     );
   }
+
+  static final Map<String, WidgetBuilder> _routes = {
+    '/': (context) => const LoginPage(),
+    '/reset-password': (context) => const ResetPasswordPage(),
+    '/home': (context) => const HomePage(),
+    '/new-request': (context) => const NewRequestPage(),
+    '/my-requests': (context) => const MyRequestsPage(),
+    '/agenda': (context) => const AgendaPage(),
+    '/vehicles': (context) => const VehiclesPage(),
+    '/pending-requests': (context) => const PendingRequestsPage(),
+    '/users': (context) => const UsersPage(),
+    '/settings': (context) => const SettingsPage(),
+    '/change-password': (context) => const ChangePasswordPage(),
+    '/notifications': (context) => const NotificationsPage(),
+    '/my-data': (context) => const MyDataPage(),
+  };
 }

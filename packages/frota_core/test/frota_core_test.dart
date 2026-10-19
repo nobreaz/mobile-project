@@ -34,17 +34,24 @@ void main() {
         returnPeriod: p,
       );
 
-      expect(req(ReturnPeriod.manha).returnDeadline, DateTime(2026, 11, 10, 12));
-      expect(req(ReturnPeriod.tarde).returnDeadline, DateTime(2026, 11, 10, 18));
+      expect(
+        req(ReturnPeriod.manha).returnDeadline,
+        DateTime(2026, 11, 10, 12),
+      );
+      expect(
+        req(ReturnPeriod.tarde).returnDeadline,
+        DateTime(2026, 11, 10, 18),
+      );
     });
   });
 
   group('RequestStatus', () {
     test('ativos para o usuário: pendente, aprovada e em uso (4.4)', () {
-      expect(
-        RequestStatus.values.where((s) => s.isActive),
-        [RequestStatus.pendente, RequestStatus.aprovada, RequestStatus.emUso],
-      );
+      expect(RequestStatus.values.where((s) => s.isActive), [
+        RequestStatus.pendente,
+        RequestStatus.aprovada,
+        RequestStatus.emUso,
+      ]);
     });
 
     test('pendente não prende veículo (decisão sobre a 4.5)', () {
@@ -73,10 +80,42 @@ void main() {
     });
   });
 
+  group('UserModel JSON', () {
+    test('ida e volta preserva os dados (validade da CNH só com o dia)', () {
+      final original = UserModel(
+        id: 3,
+        name: 'Carlos Mendes',
+        email: 'carlos@empresa.com',
+        role: 'Analista',
+        department: 'Logística',
+        cnhNumber: '123',
+        cnhExpiry: DateTime(2027, 1, 5),
+        profile: UserProfile.aprovador,
+        active: false,
+      );
+
+      final json = original.toJson();
+      expect(json['cnhExpiry'], '2027-01-05');
+      expect(json['profile'], 'aprovador');
+
+      final copy = UserModel.fromJson(json);
+      expect(copy.toJson(), json);
+    });
+  });
+
+  group('PasswordRules (6.2)', () {
+    test('exige 6 caracteres, 1 número e 1 especial', () {
+      expect(const PasswordRules('abc12!').isValid, isTrue);
+      expect(const PasswordRules('ab1!').isValid, isFalse);
+      expect(const PasswordRules('abcdef!').isValid, isFalse);
+      expect(const PasswordRules('abcde1').isValid, isFalse);
+    });
+  });
+
   test('veículo em manutenção ou inativo não é agendável (4.6)', () {
-    expect(
-      VehicleStatus.values.where((s) => s.canBeScheduled),
-      [VehicleStatus.disponivel, VehicleStatus.emUso],
-    );
+    expect(VehicleStatus.values.where((s) => s.canBeScheduled), [
+      VehicleStatus.disponivel,
+      VehicleStatus.emUso,
+    ]);
   });
 }

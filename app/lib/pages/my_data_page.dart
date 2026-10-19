@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:project/core/controllers/user_controller.dart';
 import 'package:project/core/models/user_model.dart';
+import 'package:project/core/services/api_client.dart';
 import 'package:project/core/theme/app_colors.dart';
 
 /// Tela "Meus dados" — informações do usuário logado (seção 5.2).
@@ -43,11 +44,18 @@ class MyDataPage extends StatelessWidget {
     );
 
     if (result == null) return;
-    UserController.instance.updatePhone(result);
+
+    String message;
+    try {
+      await UserController.instance.updatePhone(result);
+      message = 'Telefone atualizado.';
+    } on ApiError catch (e) {
+      message = e.message;
+    }
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Telefone atualizado.')));
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

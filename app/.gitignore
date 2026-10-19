@@ -48,3 +48,5 @@ app.*.map.json
 .widget_preview/
 
 oracleJdk-27/
+# Configuração local (copie env/example.json)
+/env/dev.json

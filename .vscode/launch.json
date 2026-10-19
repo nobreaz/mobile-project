@@ -6,7 +6,8 @@
       "type": "dart",
       "request": "launch",
       "cwd": "app",
-      "program": "lib/main.dart"
+      "program": "lib/main.dart",
+      "toolArgs": ["--dart-define-from-file=env/dev.json"]
     }
   ]
 }

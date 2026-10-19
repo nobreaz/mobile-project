@@ -4,6 +4,7 @@ import 'package:project/core/controllers/user_controller.dart';
 import 'package:project/core/models/user_model.dart';
 import 'package:project/core/theme/app_colors.dart';
 import 'package:project/pages/user_detail_page.dart';
+import 'package:project/pages/user_form_page.dart';
 
 /// Tela "Gestão de Usuários" — visão do aprovador sobre os colaboradores.
 class UsersPage extends StatefulWidget {
@@ -17,6 +18,12 @@ class _UsersPageState extends State<UsersPage> {
   String _query = '';
 
   @override
+  void initState() {
+    super.initState();
+    UserController.instance.loadUsers();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -28,12 +35,32 @@ class _UsersPageState extends State<UsersPage> {
         foregroundColor: Colors.white,
       ),
       backgroundColor: AppColors.background,
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        onPressed: () =>
+            Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const UserFormPage())),
+        icon: const Icon(Icons.person_add_alt),
+        label: const Text(
+          'Cadastrar',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
       body: AnimatedBuilder(
         animation: Listenable.merge([
           UserController.instance,
           RequestController.instance,
         ]),
         builder: (context, _) {
+          final controller = UserController.instance;
+          if (controller.loadingUsers && controller.users.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (controller.usersError != null && controller.users.isEmpty) {
+            return _errorState(controller.usersError!);
+          }
+
           final q = _query.trim().toLowerCase();
           final users = UserController.instance.users
               .where(
@@ -72,12 +99,16 @@ class _UsersPageState extends State<UsersPage> {
                           style: TextStyle(color: AppColors.textMuted),
                         ),
                       )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                        itemCount: users.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) =>
-                            _userCard(context, users[index]),
+                    : RefreshIndicator(
+                        onRefresh: controller.loadUsers,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+                          itemCount: users.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) =>
+                              _userCard(context, users[index]),
+                        ),
                       ),
               ),
             ],
@@ -149,6 +180,7 @@ class _UsersPageState extends State<UsersPage> {
                         ),
                         if (user.profile == UserProfile.aprovador)
                           _chip('Aprovador', AppColors.primaryDark),
+                        if (!user.active) _chip('Inativo', AppColors.rejected),
                       ],
                     ),
                   ],
@@ -157,6 +189,32 @@ class _UsersPageState extends State<UsersPage> {
               const Icon(Icons.chevron_right, color: AppColors.iconMuted),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _errorState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 56, color: AppColors.iconMuted),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: UserController.instance.loadUsers,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Tentar de novo'),
+            ),
+          ],
         ),
       ),
     );

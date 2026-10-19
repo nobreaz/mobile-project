@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:project/core/controllers/user_controller.dart';
 import 'package:project/core/theme/app_colors.dart';
 
 /// Pede confirmação e encerra a sessão, voltando para o login.
@@ -29,6 +30,7 @@ Future<void> confirmLogout(BuildContext context) async {
 
   if (confirmed != true || !context.mounted) return;
 
-  // Quando houver Firebase: await FirebaseAuth.instance.signOut();
+  await UserController.instance.signOut();
+  if (!context.mounted) return;
   Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
 }

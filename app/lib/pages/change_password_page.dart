@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:frota_core/frota_core.dart' show PasswordRules;
 import 'package:project/core/components/app_button_variant.dart';
 import 'package:project/core/components/input_text_field.dart';
+import 'package:project/core/controllers/user_controller.dart';
+import 'package:project/core/services/api_client.dart';
 import 'package:project/core/theme/app_colors.dart';
 
 class ChangePasswordPage extends StatefulWidget {
@@ -18,10 +21,11 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   // Trocar a "versão" recria os campos vazios (botão Limpar).
   int _formVersion = 0;
 
-  // Regra 6.2: mínimo de 6 caracteres, 1 número e 1 caractere especial.
-  bool get _hasMinLength => newPassword.length >= 6;
-  bool get _hasNumber => RegExp(r'[0-9]').hasMatch(newPassword);
-  bool get _hasSpecial => RegExp(r'[^A-Za-z0-9\s]').hasMatch(newPassword);
+  // Regra 6.2, compartilhada com a API (frota_core).
+  PasswordRules get _rules => PasswordRules(newPassword);
+  bool get _hasMinLength => _rules.hasMinLength;
+  bool get _hasNumber => _rules.hasNumber;
+  bool get _hasSpecial => _rules.hasSpecial;
   bool get _matches => newPassword.isNotEmpty && newPassword == confirmPassword;
 
   void _clear() => setState(() {
@@ -35,7 +39,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  void _submit() {
+  bool _saving = false;
+
+  Future<void> _submit() async {
+    if (_saving) return;
     if (currentPassword.isEmpty) {
       _show('Informe a senha atual.');
       return;
@@ -53,10 +60,20 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       return;
     }
 
-    // Quando houver Firebase: reautenticar com a senha atual
-    // e chamar updatePassword(newPassword).
-    _show('Senha alterada com sucesso!');
-    Navigator.of(context).pop();
+    setState(() => _saving = true);
+    try {
+      await UserController.instance.changePassword(
+        currentPassword,
+        newPassword,
+      );
+      if (!mounted) return;
+      _show('Senha alterada com sucesso!');
+      Navigator.of(context).pop();
+    } on ApiError catch (e) {
+      _show(e.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -115,7 +132,10 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                         _requirements(),
                         const Spacer(),
                         const SizedBox(height: 40),
-                        AppButton(label: 'Confirmar', onPressed: _submit),
+                        AppButton(
+                          label: _saving ? 'Salvando...' : 'Confirmar',
+                          onPressed: _submit,
+                        ),
                         const SizedBox(height: 10),
                         AppButton(
                           variant: AppButtonVariant.cancel,

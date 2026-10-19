@@ -5,7 +5,9 @@ import 'package:project/core/controllers/user_controller.dart';
 import 'package:project/core/controllers/vehicle_controller.dart';
 import 'package:project/core/models/request_model.dart';
 import 'package:project/core/models/user_model.dart';
+import 'package:project/core/services/api_client.dart';
 import 'package:project/core/theme/app_colors.dart';
+import 'package:project/pages/user_form_page.dart';
 
 /// Detalhes de um colaborador: resumo, dados e histórico de solicitações.
 class UserDetailPage extends StatelessWidget {
@@ -53,6 +55,8 @@ class UserDetailPage extends StatelessWidget {
             )
             .length;
 
+        final isSelf = user.id == UserController.instance.currentUser.id;
+
         return Scaffold(
           appBar: AppBar(
             title: const Text(
@@ -61,6 +65,15 @@ class UserDetailPage extends StatelessWidget {
             ),
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                tooltip: 'Editar',
+                icon: const Icon(Icons.edit),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => UserFormPage(user: user)),
+                ),
+              ),
+            ],
           ),
           backgroundColor: AppColors.background,
           body: ListView(
@@ -76,6 +89,10 @@ class UserDetailPage extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               _info(user),
+              if (!isSelf) ...[
+                const SizedBox(height: 12),
+                _accessButton(context, user),
+              ],
               const SizedBox(height: 24),
               const Padding(
                 padding: EdgeInsets.only(left: 8, bottom: 8),
@@ -108,6 +125,74 @@ class UserDetailPage extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// Desativar ou reativar o acesso. O usuário nunca é apagado:
+  /// o histórico de solicitações continua disponível.
+  Widget _accessButton(BuildContext context, UserModel user) {
+    final deactivate = user.active;
+    final color = deactivate ? AppColors.rejected : AppColors.approved;
+
+    return OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color, width: 1.5),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      icon: Icon(deactivate ? Icons.block : Icons.restart_alt),
+      label: Text(
+        deactivate ? 'Desativar acesso' : 'Reativar acesso',
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+      onPressed: () => _toggleAccess(context, user),
+    );
+  }
+
+  Future<void> _toggleAccess(BuildContext context, UserModel user) async {
+    final deactivate = user.active;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(deactivate ? 'Desativar acesso' : 'Reativar acesso'),
+        content: Text(
+          deactivate
+              ? '${user.name} não conseguirá mais entrar no aplicativo. '
+                    'O histórico de solicitações é mantido e você pode '
+                    'reativar depois.'
+              : '${user.name} voltará a ter acesso ao aplicativo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              deactivate ? 'Desativar' : 'Reativar',
+              style: TextStyle(
+                color: deactivate ? AppColors.rejected : AppColors.approved,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    String message;
+    try {
+      await UserController.instance.updateUser(user.id, {
+        'active': !deactivate,
+      });
+      message = deactivate ? 'Acesso desativado.' : 'Acesso reativado.';
+    } on ApiError catch (e) {
+      message = e.message;
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   ShapeDecoration _cardDecoration() {
@@ -159,6 +244,17 @@ class UserDetailPage extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (!user.active) ...[
+                  const SizedBox(height: 6),
+                  const Text(
+                    'ACESSO DESATIVADO',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.rejected,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

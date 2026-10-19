@@ -9,9 +9,12 @@ environment:
 
 dependencies:
   dart_frog: ^1.2.0
+  dotenv: ^4.2.0
   # Domínio compartilhado com o app (modelos, enums e regras em Dart puro).
   frota_core:
     path: ../packages/frota_core
+  http: ^1.6.0
+  postgres: ^3.5.20
 
 dev_dependencies:
   dart_frog_lint: ^0.1.0

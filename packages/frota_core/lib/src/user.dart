@@ -1,3 +1,9 @@
+/// Data sem horário no formato `AAAA-MM-DD` (o mesmo do tipo `date` do banco).
+String formatDate(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-'
+    '${d.month.toString().padLeft(2, '0')}-'
+    '${d.day.toString().padLeft(2, '0')}';
+
 /// Perfil de acesso no sistema (seção 2 do documento).
 enum UserProfile { padrao, aprovador }
 
@@ -43,6 +49,10 @@ class UserModel {
   DateTime? cnhExpiry;
   UserProfile profile;
 
+  /// Usuário desativado não consegue entrar no app. Nunca é apagado,
+  /// para manter o histórico de solicitações (mesma ideia do veículo).
+  bool active;
+
   UserModel({
     required this.id,
     required this.name,
@@ -54,7 +64,40 @@ class UserModel {
     this.cnhCategory,
     this.cnhExpiry,
     this.profile = UserProfile.padrao,
+    this.active = true,
   });
+
+  /// Formato JSON trocado entre a API e o app.
+  /// Datas sem horário (validade da CNH) vão como `AAAA-MM-DD`.
+  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
+    id: json['id'] as int,
+    name: json['name'] as String,
+    email: json['email'] as String,
+    phone: json['phone'] as String?,
+    role: json['role'] as String,
+    department: json['department'] as String,
+    cnhNumber: json['cnhNumber'] as String?,
+    cnhCategory: json['cnhCategory'] as String?,
+    cnhExpiry: json['cnhExpiry'] == null
+        ? null
+        : DateTime.parse(json['cnhExpiry'] as String),
+    profile: UserProfile.values.byName(json['profile'] as String),
+    active: json['active'] as bool? ?? true,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'email': email,
+    'phone': phone,
+    'role': role,
+    'department': department,
+    'cnhNumber': cnhNumber,
+    'cnhCategory': cnhCategory,
+    'cnhExpiry': cnhExpiry == null ? null : formatDate(cnhExpiry!),
+    'profile': profile.name,
+    'active': active,
+  };
 
   /// Dias até o vencimento da CNH (negativo = já venceu).
   int? get daysToCnhExpiry {
