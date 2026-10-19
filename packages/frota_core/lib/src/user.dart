@@ -1,6 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:project/core/theme/app_colors.dart';
-
 /// Perfil de acesso no sistema (seção 2 do documento).
 enum UserProfile { padrao, aprovador }
 
@@ -31,35 +28,9 @@ extension CnhStatusX on CnhStatus {
         return 'Não informada';
     }
   }
-
-  Color get color {
-    switch (this) {
-      case CnhStatus.valida:
-        return AppColors.approved;
-      case CnhStatus.vencendo:
-        return AppColors.canceled;
-      case CnhStatus.vencida:
-        return AppColors.rejected;
-      case CnhStatus.naoInformada:
-        return AppColors.textMuted;
-    }
-  }
-
-  IconData get icon {
-    switch (this) {
-      case CnhStatus.valida:
-        return Icons.check_circle_outline;
-      case CnhStatus.vencendo:
-        return Icons.schedule;
-      case CnhStatus.vencida:
-        return Icons.error_outline;
-      case CnhStatus.naoInformada:
-        return Icons.help_outline;
-    }
-  }
 }
 
-/// Representa o usuário logado (entidade "Usuário" — seção 5.2).
+/// Representa um usuário (entidade "Usuário" — seção 5.2).
 class UserModel {
   final int id;
   String name;

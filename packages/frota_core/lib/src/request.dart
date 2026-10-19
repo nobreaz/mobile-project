@@ -1,6 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:project/core/theme/app_colors.dart';
-
 /// Status possíveis de uma solicitação de agendamento.
 ///
 /// Ciclo previsto na regra 4.2 do documento:
@@ -33,22 +30,15 @@ extension RequestStatusX on RequestStatus {
     }
   }
 
-  Color get color {
-    switch (this) {
-      case RequestStatus.pendente:
-        return AppColors.primary;
-      case RequestStatus.aprovada:
-        return AppColors.approved;
-      case RequestStatus.emUso:
-        return AppColors.primaryDark;
-      case RequestStatus.finalizada:
-        return AppColors.textMuted;
-      case RequestStatus.recusada:
-        return AppColors.rejected;
-      case RequestStatus.cancelada:
-        return AppColors.canceled;
-    }
-  }
+  /// Ocupa a agenda do usuário (regra 4.4).
+  bool get isActive =>
+      this == RequestStatus.pendente ||
+      this == RequestStatus.aprovada ||
+      this == RequestStatus.emUso;
+
+  /// Ocupa a agenda do veículo alocado (regra 4.3).
+  bool get holdsVehicle =>
+      this == RequestStatus.aprovada || this == RequestStatus.emUso;
 }
 
 /// Período do dia em que o veículo será devolvido.
@@ -76,6 +66,16 @@ extension ReturnPeriodX on ReturnPeriod {
 
   String get description => 'até ${endHour}h';
 }
+
+/// Dois intervalos `[aStart, aEnd)` e `[bStart, bEnd)` se sobrepõem?
+/// Base das regras 4.3 (veículo) e 4.4 (usuário). Encostar não conta:
+/// uma devolução às 12h não conflita com uma saída às 12h.
+bool periodsOverlap(
+  DateTime aStart,
+  DateTime aEnd,
+  DateTime bStart,
+  DateTime bEnd,
+) => aStart.isBefore(bEnd) && bStart.isBefore(aEnd);
 
 /// Representa uma solicitação de agendamento de veículo.
 /// (Entidade "Solicitação de agendamento" — seção 5.3 do documento.)

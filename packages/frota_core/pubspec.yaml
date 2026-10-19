@@ -1,0 +1,12 @@
+name: frota_core
+description: Domínio do Gestor de Frotas em Dart puro (modelos, enums e regras), compartilhado entre o app e a API.
+publish_to: none
+version: 1.0.0
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.0

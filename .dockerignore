@@ -1,0 +1,10 @@
+# O build da API só precisa de server/ e packages/.
+app/
+lib/
+**/.dart_tool/
+**/build/
+.git/
+.github/
+.vscode/
+.env
+.env.*

@@ -219,12 +219,7 @@ class RequestController extends ChangeNotifier {
 
   /// Reservas ativas de um veículo: aprovadas (futuras) ou em uso.
   List<RequestModel> activeBookingsOf(int vehicleId) => _requests
-      .where(
-        (r) =>
-            r.vehicleId == vehicleId &&
-            (r.status == RequestStatus.aprovada ||
-                r.status == RequestStatus.emUso),
-      )
+      .where((r) => r.vehicleId == vehicleId && r.status.holdsVehicle)
       .toList();
 
   /// Devolve reservas aprovadas para Pendente, liberando o veículo.
@@ -340,19 +335,12 @@ class RequestController extends ChangeNotifier {
       if (other.requesterId != userId || other.id == ignoreRequestId) {
         continue;
       }
-
-      final isActive =
-          other.status == RequestStatus.pendente ||
-          other.status == RequestStatus.aprovada ||
-          other.status == RequestStatus.emUso;
-      if (!isActive) continue;
+      if (!other.status.isActive) continue;
 
       final range = _occupiedRange(other);
       if (range == null) continue;
 
-      if (start.isBefore(range.end) && range.start.isBefore(end)) {
-        return true;
-      }
+      if (periodsOverlap(start, end, range.start, range.end)) return true;
     }
     return false;
   }
@@ -360,11 +348,7 @@ class RequestController extends ChangeNotifier {
   /// Regra RN 4.1: veículos elegíveis, ordenados por menor km.
   List<VehicleModel> eligibleVehicles(RequestModel request) {
     final eligible = VehicleController.instance.vehicles
-        .where(
-          (v) =>
-              v.status != VehicleStatus.emManutencao &&
-              v.status != VehicleStatus.inativo,
-        )
+        .where((v) => v.status.canBeScheduled)
         .where((v) => v.seats >= request.passengers)
         .where((v) => _isVehicleFree(v.id, request))
         .toList();
@@ -381,18 +365,12 @@ class RequestController extends ChangeNotifier {
 
     for (final other in _requests) {
       if (other.id == request.id || other.vehicleId != vehicleId) continue;
-
-      final isActive =
-          other.status == RequestStatus.aprovada ||
-          other.status == RequestStatus.emUso;
-      if (!isActive) continue;
+      if (!other.status.holdsVehicle) continue;
 
       final range = _occupiedRange(other);
       if (range == null) return false;
 
-      if (start.isBefore(range.end) && range.start.isBefore(end)) {
-        return false;
-      }
+      if (periodsOverlap(start, end, range.start, range.end)) return false;
     }
 
     return true;

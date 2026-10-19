@@ -1,6 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:project/core/theme/app_colors.dart';
-
 /// Status operacional do veículo.
 /// (Requisito 3.2.5 e entidade "Veículo" — item 5.1.3 do documento.)
 ///
@@ -26,18 +23,9 @@ extension VehicleStatusX on VehicleStatus {
     }
   }
 
-  Color get color {
-    switch (this) {
-      case VehicleStatus.disponivel:
-        return AppColors.approved;
-      case VehicleStatus.emUso:
-        return AppColors.primary;
-      case VehicleStatus.emManutencao:
-        return AppColors.canceled;
-      case VehicleStatus.inativo:
-        return AppColors.rejected;
-    }
-  }
+  /// Em manutenção ou inativo não pode ser agendado (regra 4.6).
+  bool get canBeScheduled =>
+      this != VehicleStatus.emManutencao && this != VehicleStatus.inativo;
 }
 
 /// Categoria / tipo do veículo (item 5.1.4 do documento).
@@ -54,44 +42,19 @@ extension VehicleTypeX on VehicleType {
         return 'Van';
     }
   }
-
-  IconData get icon {
-    switch (this) {
-      case VehicleType.passeio:
-        return Icons.directions_car;
-      case VehicleType.utilitario:
-        return Icons.local_shipping;
-      case VehicleType.van:
-        return Icons.airport_shuttle;
-    }
-  }
 }
 
 /// Situação de um documento com vencimento (licenciamento/IPVA, seguro).
 enum ExpiryStatus { valido, vencendo, vencido, naoInformado }
 
-extension ExpiryStatusX on ExpiryStatus {
-  Color get color {
-    switch (this) {
-      case ExpiryStatus.valido:
-        return AppColors.approved;
-      case ExpiryStatus.vencendo:
-        return AppColors.canceled;
-      case ExpiryStatus.vencido:
-        return AppColors.rejected;
-      case ExpiryStatus.naoInformado:
-        return AppColors.textMuted;
-    }
-  }
-}
-
 /// Válido, vencendo (até 30 dias), vencido ou não informado.
-ExpiryStatus expiryStatusOf(DateTime? expiry) {
+/// [today] permite testar com uma data fixa.
+ExpiryStatus expiryStatusOf(DateTime? expiry, {DateTime? today}) {
   if (expiry == null) return ExpiryStatus.naoInformado;
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
+  final now = today ?? DateTime.now();
+  final start = DateTime(now.year, now.month, now.day);
   final end = DateTime(expiry.year, expiry.month, expiry.day);
-  final days = end.difference(today).inDays;
+  final days = end.difference(start).inDays;
   if (days < 0) return ExpiryStatus.vencido;
   if (days <= 30) return ExpiryStatus.vencendo;
   return ExpiryStatus.valido;
