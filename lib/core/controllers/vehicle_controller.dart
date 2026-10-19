@@ -21,6 +21,8 @@ class VehicleController extends ChangeNotifier {
       year: 2022,
       seats: 5,
       mileage: 42500,
+      licensingExpiry: DateTime(2027, 3, 31),
+      insuranceExpiry: DateTime.now().add(const Duration(days: 15)),
     ),
     VehicleModel(
       id: 2,
@@ -33,6 +35,8 @@ class VehicleController extends ChangeNotifier {
       mileage: 87300,
       type: VehicleType.utilitario,
       status: VehicleStatus.emManutencao,
+      licensingExpiry: DateTime(2026, 9, 30),
+      insuranceExpiry: DateTime(2027, 6, 10),
     ),
   ];
 
@@ -52,6 +56,8 @@ class VehicleController extends ChangeNotifier {
     required int mileage,
     VehicleType type = VehicleType.passeio,
     VehicleStatus status = VehicleStatus.disponivel,
+    DateTime? licensingExpiry,
+    DateTime? insuranceExpiry,
   }) {
     _vehicles.add(
       VehicleModel(
@@ -65,6 +71,8 @@ class VehicleController extends ChangeNotifier {
         mileage: mileage,
         type: type,
         status: status,
+        licensingExpiry: licensingExpiry,
+        insuranceExpiry: insuranceExpiry,
       ),
     );
     notifyListeners();
@@ -82,6 +90,8 @@ class VehicleController extends ChangeNotifier {
     required int mileage,
     required VehicleType type,
     required VehicleStatus status,
+    required DateTime? licensingExpiry,
+    required DateTime? insuranceExpiry,
   }) {
     final vehicle = _vehicles.firstWhere((v) => v.id == id);
     vehicle
@@ -93,7 +103,9 @@ class VehicleController extends ChangeNotifier {
       ..seats = seats
       ..mileage = mileage
       ..type = type
-      ..status = status;
+      ..status = status
+      ..licensingExpiry = licensingExpiry
+      ..insuranceExpiry = insuranceExpiry;
     notifyListeners();
   }
 
@@ -113,9 +125,10 @@ class VehicleController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// DELETE — remove um veículo da frota (requisito 3.2.4).
-  void removeVehicle(int id) {
-    _vehicles.removeWhere((v) => v.id == id);
-    notifyListeners();
-  }
+  /// Requisito 3.2.4: o veículo é desativado (status Inativo), nunca
+  /// apagado, para preservar o histórico de solicitações que o usaram.
+  void deactivateVehicle(int id) => updateStatus(id, VehicleStatus.inativo);
+
+  /// Devolve um veículo inativo à frota.
+  void reactivateVehicle(int id) => updateStatus(id, VehicleStatus.disponivel);
 }

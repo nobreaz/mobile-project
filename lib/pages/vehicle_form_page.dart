@@ -29,6 +29,8 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
   late String mileage;
   late VehicleType type;
   late VehicleStatus status;
+  DateTime? licensingExpiry;
+  DateTime? insuranceExpiry;
 
   bool get isEditing => widget.vehicle != null;
 
@@ -45,12 +47,17 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
     mileage = v?.mileage.toString() ?? '';
     type = v?.type ?? VehicleType.passeio;
     status = v?.status ?? VehicleStatus.disponivel;
+    licensingExpiry = v?.licensingExpiry;
+    insuranceExpiry = v?.insuranceExpiry;
   }
 
   String _pad(int v) => v.toString().padLeft(2, '0');
 
   String _fmtDate(DateTime? d) =>
       d == null ? '—' : '${_pad(d.day)}/${_pad(d.month)}';
+
+  String _fmtFullDate(DateTime? d) =>
+      d == null ? '' : '${_pad(d.day)}/${_pad(d.month)}/${d.year}';
 
   void _showMessage(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -136,6 +143,13 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
       return;
     }
 
+    if (licensingExpiry == null || insuranceExpiry == null) {
+      _showMessage(
+        'Informe o vencimento do licenciamento/IPVA e do seguro.',
+      );
+      return;
+    }
+
     final parsedYear = int.tryParse(year) ?? 0;
     final parsedSeats = int.tryParse(seats) ?? 0;
     final parsedMileage = int.tryParse(mileage) ?? 0;
@@ -189,6 +203,8 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
         mileage: parsedMileage,
         type: type,
         status: status,
+        licensingExpiry: licensingExpiry,
+        insuranceExpiry: insuranceExpiry,
       );
       _showMessage(
         toRelease.isEmpty
@@ -207,6 +223,8 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
         mileage: parsedMileage,
         type: type,
         status: status,
+        licensingExpiry: licensingExpiry,
+        insuranceExpiry: insuranceExpiry,
       );
       _showMessage('Veículo cadastrado com sucesso!');
     }
@@ -283,6 +301,29 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
               hint: 'Ex.: 42500',
               inputText: mileage,
               onChanged: (text) => mileage = text,
+            ),
+            const SizedBox(height: 16),
+            // Datas passadas são aceitas: o documento pode já estar vencido.
+            InputTextField(
+              label: 'Vencimento do licenciamento/IPVA',
+              type: InputFieldType.date,
+              hint: 'Selecione a data',
+              inputText: _fmtFullDate(licensingExpiry),
+              firstDate: DateTime(2000),
+              onChanged: (_) {},
+              onDateSelected: (date) =>
+                  setState(() => licensingExpiry = date),
+            ),
+            const SizedBox(height: 16),
+            InputTextField(
+              label: 'Vencimento do seguro',
+              type: InputFieldType.date,
+              hint: 'Selecione a data',
+              inputText: _fmtFullDate(insuranceExpiry),
+              firstDate: DateTime(2000),
+              onChanged: (_) {},
+              onDateSelected: (date) =>
+                  setState(() => insuranceExpiry = date),
             ),
             const SizedBox(height: 20),
             _dropdown<VehicleType>(

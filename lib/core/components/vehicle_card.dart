@@ -3,18 +3,26 @@ import 'package:project/core/models/vehicle_model.dart';
 import 'package:project/core/theme/app_colors.dart';
 
 /// Card que exibe um veículo na tela "Gestão de Veículos",
-/// com as ações de editar e remover.
+/// com as ações de editar e desativar/reativar.
 class VehicleCard extends StatelessWidget {
   final VehicleModel vehicle;
   final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback onToggleActive;
 
   const VehicleCard({
     super.key,
     required this.vehicle,
     required this.onEdit,
-    required this.onDelete,
+    required this.onToggleActive,
   });
+
+  bool get _isInactive => vehicle.status == VehicleStatus.inativo;
+
+  String _pad(int v) => v.toString().padLeft(2, '0');
+
+  String _fmtDate(DateTime? d) => d == null
+      ? 'não informado'
+      : '${_pad(d.day)}/${_pad(d.month)}/${d.year}';
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +108,14 @@ class VehicleCard extends StatelessWidget {
               _info(Icons.palette_outlined, vehicle.color),
             ],
           ),
+          const SizedBox(height: 10),
+          _expiry(
+            'Licenciamento/IPVA',
+            vehicle.licensingExpiry,
+            vehicle.licensingStatus,
+          ),
+          const SizedBox(height: 4),
+          _expiry('Seguro', vehicle.insuranceExpiry, vehicle.insuranceStatus),
           const Divider(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -117,13 +133,17 @@ class VehicleCard extends StatelessWidget {
                 ),
               ),
               TextButton.icon(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline,
-                    size: 16, color: AppColors.rejected),
-                label: const Text(
-                  'Remover',
+                onPressed: onToggleActive,
+                icon: Icon(
+                  _isInactive ? Icons.restart_alt : Icons.block,
+                  size: 16,
+                  color: _isInactive ? AppColors.approved : AppColors.rejected,
+                ),
+                label: Text(
+                  _isInactive ? 'Reativar' : 'Desativar',
                   style: TextStyle(
-                    color: AppColors.rejected,
+                    color:
+                        _isInactive ? AppColors.approved : AppColors.rejected,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -132,6 +152,31 @@ class VehicleCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// Linha de vencimento colorida: verde, amarelo (≤30 dias) ou vermelho.
+  Widget _expiry(String label, DateTime? date, ExpiryStatus status) {
+    final suffix = switch (status) {
+      ExpiryStatus.vencido => ' · vencido',
+      ExpiryStatus.vencendo => ' · vence em breve',
+      _ => '',
+    };
+    return Row(
+      children: [
+        Icon(Icons.description_outlined, size: 14, color: status.color),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            '$label: ${_fmtDate(date)}$suffix',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: status == ExpiryStatus.valido ? null : status.color,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

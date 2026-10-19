@@ -67,6 +67,36 @@ extension VehicleTypeX on VehicleType {
   }
 }
 
+/// Situação de um documento com vencimento (licenciamento/IPVA, seguro).
+enum ExpiryStatus { valido, vencendo, vencido, naoInformado }
+
+extension ExpiryStatusX on ExpiryStatus {
+  Color get color {
+    switch (this) {
+      case ExpiryStatus.valido:
+        return AppColors.approved;
+      case ExpiryStatus.vencendo:
+        return AppColors.canceled;
+      case ExpiryStatus.vencido:
+        return AppColors.rejected;
+      case ExpiryStatus.naoInformado:
+        return AppColors.textMuted;
+    }
+  }
+}
+
+/// Válido, vencendo (até 30 dias), vencido ou não informado.
+ExpiryStatus expiryStatusOf(DateTime? expiry) {
+  if (expiry == null) return ExpiryStatus.naoInformado;
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final end = DateTime(expiry.year, expiry.month, expiry.day);
+  final days = end.difference(today).inDays;
+  if (days < 0) return ExpiryStatus.vencido;
+  if (days <= 30) return ExpiryStatus.vencendo;
+  return ExpiryStatus.valido;
+}
+
 /// Representa um veículo da frota.
 /// (Entidade "Veículo" — seção 5.1 do documento de requisitos.)
 class VehicleModel {
@@ -81,6 +111,10 @@ class VehicleModel {
   VehicleType type;
   VehicleStatus status;
 
+  /// Vencimentos do licenciamento/IPVA e do seguro (item 5.1.5).
+  DateTime? licensingExpiry;
+  DateTime? insuranceExpiry;
+
   VehicleModel({
     required this.id,
     required this.plate,
@@ -92,5 +126,10 @@ class VehicleModel {
     required this.mileage,
     this.type = VehicleType.passeio,
     this.status = VehicleStatus.disponivel,
+    this.licensingExpiry,
+    this.insuranceExpiry,
   });
+
+  ExpiryStatus get licensingStatus => expiryStatusOf(licensingExpiry);
+  ExpiryStatus get insuranceStatus => expiryStatusOf(insuranceExpiry);
 }
