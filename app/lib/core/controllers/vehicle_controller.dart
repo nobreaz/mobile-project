@@ -1,134 +1,76 @@
 import 'package:flutter/material.dart';
+import 'package:project/core/controllers/loadable.dart';
+import 'package:project/core/controllers/request_controller.dart';
 import 'package:project/core/models/vehicle_model.dart';
+import 'package:project/core/services/api_client.dart';
 
-/// Armazena a frota em memória enquanto o app está aberto.
+/// A frota, vinda da API (`/veiculos`).
 ///
-/// Mesmo padrão do AppController e do RequestController:
-/// singleton + ChangeNotifier. Quando o Firebase entrar,
-/// basta trocar o miolo desta classe — as telas não mudam.
-class VehicleController extends ChangeNotifier {
+/// Todos os perfis leem (o Padrão precisa ver o carro alocado a ele);
+/// só o Administrador altera, e o servidor confere isso.
+/// Status "Em uso" e km mudam sozinhos na retirada/devolução (servidor).
+class VehicleController extends ChangeNotifier with Loadable {
   VehicleController._();
   static final VehicleController instance = VehicleController._();
 
-  final List<VehicleModel> _vehicles = [
-    // Dados de exemplo para visualizar a tela (remover quando houver backend).
-    VehicleModel(
-      id: 1,
-      plate: 'ABC-1D23',
-      chassis: '9BWZZZ377VT004251',
-      model: 'Toyota Corolla',
-      color: 'Prata',
-      year: 2022,
-      seats: 5,
-      mileage: 42500,
-      licensingExpiry: DateTime(2027, 3, 31),
-      insuranceExpiry: DateTime.now().add(const Duration(days: 15)),
-    ),
-    VehicleModel(
-      id: 2,
-      plate: 'XYZ-4E56',
-      chassis: '9BWZZZ377VT004252',
-      model: 'Fiat Fiorino',
-      color: 'Branco',
-      year: 2020,
-      seats: 2,
-      mileage: 87300,
-      type: VehicleType.utilitario,
-      status: VehicleStatus.emManutencao,
-      licensingExpiry: DateTime(2026, 9, 30),
-      insuranceExpiry: DateTime(2027, 6, 10),
-    ),
-  ];
+  ApiClient get _api => ApiClient.instance;
 
-  int _nextId = 3;
+  List<VehicleModel> _vehicles = [];
 
-  /// Lista completa da frota.
+  /// Lista completa da frota (inativos por último).
   List<VehicleModel> get vehicles => List.unmodifiable(_vehicles);
 
+  VehicleModel? byId(int id) {
+    for (final v in _vehicles) {
+      if (v.id == id) return v;
+    }
+    return null;
+  }
+
+  Future<void> load() => guardLoad(() async {
+    final list = await _api.get('/veiculos') as List;
+    _vehicles = [
+      for (final json in list)
+        VehicleModel.fromJson(json as Map<String, dynamic>),
+    ];
+  });
+
+  /// Apaga os dados ao sair da conta.
+  void clear() {
+    _vehicles = [];
+    error = null;
+    notifyListeners();
+  }
+
   /// CREATE — cadastra um novo veículo (requisito 3.2.1).
-  void addVehicle({
-    required String plate,
-    required String chassis,
-    required String model,
-    required String color,
-    required int year,
-    required int seats,
-    required int mileage,
-    VehicleType type = VehicleType.passeio,
-    VehicleStatus status = VehicleStatus.disponivel,
-    DateTime? licensingExpiry,
-    DateTime? insuranceExpiry,
-  }) {
-    _vehicles.add(
-      VehicleModel(
-        id: _nextId++,
-        plate: plate,
-        chassis: chassis,
-        model: model,
-        color: color,
-        year: year,
-        seats: seats,
-        mileage: mileage,
-        type: type,
-        status: status,
-        licensingExpiry: licensingExpiry,
-        insuranceExpiry: insuranceExpiry,
-      ),
-    );
+  Future<VehicleModel> addVehicle(Map<String, dynamic> data) async {
+    final created = VehicleModel.fromJson(await _api.post('/veiculos', data));
+    _vehicles = [..._vehicles, created];
     notifyListeners();
+    return created;
   }
 
-  /// UPDATE — altera as informações de um veículo (requisito 3.2.3).
-  void updateVehicle(
-    int id, {
-    required String plate,
-    required String chassis,
-    required String model,
-    required String color,
-    required int year,
-    required int seats,
-    required int mileage,
-    required VehicleType type,
-    required VehicleStatus status,
-    required DateTime? licensingExpiry,
-    required DateTime? insuranceExpiry,
-  }) {
-    final vehicle = _vehicles.firstWhere((v) => v.id == id);
-    vehicle
-      ..plate = plate
-      ..chassis = chassis
-      ..model = model
-      ..color = color
-      ..year = year
-      ..seats = seats
-      ..mileage = mileage
-      ..type = type
-      ..status = status
-      ..licensingExpiry = licensingExpiry
-      ..insuranceExpiry = insuranceExpiry;
+  /// UPDATE — altera só os campos enviados (requisitos 3.2.3 e 3.2.4).
+  /// Devolve quantas reservas aprovadas voltaram para Pendente porque o
+  /// veículo deixou de atendê-las (o servidor decide e notifica).
+  Future<int> updateVehicle(int id, Map<String, dynamic> changes) async {
+    final json =
+        await _api.patch('/veiculos/$id', changes) as Map<String, dynamic>;
+    final updated = VehicleModel.fromJson(json);
+    _vehicles = [for (final v in _vehicles) v.id == id ? updated : v];
     notifyListeners();
-  }
 
-  /// Altera apenas o status operacional de um veículo.
-  /// Usado no check-out (→ Em uso) e no check-in (→ Disponível).
-  void updateStatus(int id, VehicleStatus status) {
-    final vehicle = _vehicles.firstWhere((v) => v.id == id);
-    vehicle.status = status;
-    notifyListeners();
-  }
-
-  /// Atualiza a quilometragem do veículo ao final de cada uso,
-  /// a partir da km de retorno informada no check-in (regra 4.8).
-  void updateMileage(int id, int mileage) {
-    final vehicle = _vehicles.firstWhere((v) => v.id == id);
-    vehicle.mileage = mileage;
-    notifyListeners();
+    final released = (json['releasedRequestIds'] as List?)?.length ?? 0;
+    if (released > 0) await RequestController.instance.load();
+    return released;
   }
 
   /// Requisito 3.2.4: o veículo é desativado (status Inativo), nunca
   /// apagado, para preservar o histórico de solicitações que o usaram.
-  void deactivateVehicle(int id) => updateStatus(id, VehicleStatus.inativo);
+  Future<int> deactivateVehicle(int id) =>
+      updateVehicle(id, {'status': VehicleStatus.inativo.name});
 
   /// Devolve um veículo inativo à frota.
-  void reactivateVehicle(int id) => updateStatus(id, VehicleStatus.disponivel);
+  Future<int> reactivateVehicle(int id) =>
+      updateVehicle(id, {'status': VehicleStatus.disponivel.name});
 }

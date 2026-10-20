@@ -1,3 +1,5 @@
+import 'user.dart' show formatDate;
+
 /// Status operacional do veículo.
 /// (Requisito 3.2.5 e entidade "Veículo" — item 5.1.3 do documento.)
 ///
@@ -92,6 +94,49 @@ class VehicleModel {
     this.licensingExpiry,
     this.insuranceExpiry,
   });
+
+  /// Formato JSON trocado entre a API e o app.
+  /// Vencimentos são só o dia (`AAAA-MM-DD`).
+  factory VehicleModel.fromJson(Map<String, dynamic> json) {
+    DateTime? date(String key) {
+      final v = json[key] as String?;
+      return v == null ? null : DateTime.parse(v);
+    }
+
+    return VehicleModel(
+      id: json['id'] as int,
+      plate: json['plate'] as String,
+      chassis: json['chassis'] as String,
+      model: json['model'] as String,
+      color: json['color'] as String,
+      year: json['year'] as int,
+      seats: json['seats'] as int,
+      mileage: json['mileage'] as int,
+      type: VehicleType.values.byName(json['type'] as String),
+      status: VehicleStatus.values.byName(json['status'] as String),
+      licensingExpiry: date('licensingExpiry'),
+      insuranceExpiry: date('insuranceExpiry'),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'plate': plate,
+    'chassis': chassis,
+    'model': model,
+    'color': color,
+    'year': year,
+    'seats': seats,
+    'mileage': mileage,
+    'type': type.name,
+    'status': status.name,
+    'licensingExpiry': licensingExpiry == null
+        ? null
+        : formatDate(licensingExpiry!),
+    'insuranceExpiry': insuranceExpiry == null
+        ? null
+        : formatDate(insuranceExpiry!),
+  };
 
   ExpiryStatus get licensingStatus => expiryStatusOf(licensingExpiry);
   ExpiryStatus get insuranceStatus => expiryStatusOf(insuranceExpiry);

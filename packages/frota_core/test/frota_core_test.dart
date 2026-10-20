@@ -191,4 +191,35 @@ void main() {
       VehicleStatus.emUso,
     ]);
   });
+
+  test('VehicleModel e AppNotification vão e voltam em JSON', () {
+    final v = VehicleModel(
+      id: 3,
+      plate: 'ABC1D23',
+      chassis: '9BW',
+      model: 'Gol',
+      color: 'Branco',
+      year: 2022,
+      seats: 5,
+      mileage: 1000,
+      type: VehicleType.utilitario,
+      status: VehicleStatus.emManutencao,
+      licensingExpiry: DateTime(2027, 3, 31),
+      insuranceExpiry: DateTime(2027, 6, 10),
+    );
+    final json = v.toJson();
+    expect(json['licensingExpiry'], '2027-03-31');
+    expect(VehicleModel.fromJson(json).toJson(), json);
+
+    final n = AppNotification(
+      id: 1,
+      userId: 2,
+      requestId: 3,
+      type: NotificationType.approved,
+      destination: 'Macaé',
+      message: 'ok',
+      createdAt: DateTime.utc(2026, 11, 10, 11),
+    );
+    expect(AppNotification.fromJson(n.toJson()).toJson(), n.toJson());
+  });
 }

@@ -18,6 +18,10 @@ class ApiError implements Exception {
 
   bool get isUnauthorized => statusCode == 401;
 
+  /// Texto para mostrar ao usuário: o problema de cada campo, se houver
+  /// (mais útil que "Verifique os campos destacados." num aviso).
+  String get details => fields.isEmpty ? message : fields.values.join('\n');
+
   @override
   String toString() => message;
 }

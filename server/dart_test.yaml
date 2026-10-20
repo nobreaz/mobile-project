@@ -1,0 +1,3 @@
+tags:
+  # Testes contra o banco real (sempre desfeitos). Ver test/integracao/.
+  integracao:

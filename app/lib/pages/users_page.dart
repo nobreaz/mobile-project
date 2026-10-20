@@ -21,6 +21,7 @@ class _UsersPageState extends State<UsersPage> {
   void initState() {
     super.initState();
     UserController.instance.loadUsers();
+    RequestController.instance.load(); // nº de solicitações de cada um
   }
 
   @override

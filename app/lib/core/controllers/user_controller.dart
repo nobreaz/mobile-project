@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:project/core/controllers/notification_controller.dart';
+import 'package:project/core/controllers/request_controller.dart';
+import 'package:project/core/controllers/vehicle_controller.dart';
 import 'package:project/core/models/user_model.dart';
 import 'package:project/core/services/api_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -82,12 +85,24 @@ class UserController extends ChangeNotifier {
     }
     _currentUser = null;
     _users = [];
+    VehicleController.instance.clear();
+    RequestController.instance.clear();
+    NotificationController.instance.clear();
     notifyListeners();
   }
 
   Future<void> _loadMe() async {
     _currentUser = UserModel.fromJson(await _api.get('/me'));
     notifyListeners();
+    refreshAppData();
+  }
+
+  /// Recarrega frota, solicitações e notificações (sem bloquear a tela:
+  /// cada lista mostra o próprio carregamento).
+  void refreshAppData() {
+    VehicleController.instance.load();
+    RequestController.instance.load();
+    NotificationController.instance.load();
   }
 
   // ---------------------------------------------------------------------

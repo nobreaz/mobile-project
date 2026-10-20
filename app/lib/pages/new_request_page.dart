@@ -8,6 +8,7 @@ import 'package:project/core/controllers/vehicle_controller.dart';
 import 'package:project/core/models/request_model.dart';
 import 'package:project/core/models/user_model.dart';
 import 'package:project/core/models/vehicle_model.dart';
+import 'package:project/core/services/api_client.dart';
 import 'package:project/core/theme/app_colors.dart';
 import 'package:project/core/theme/app_text_styles.dart';
 
@@ -81,7 +82,11 @@ class _NewRequestPageState extends State<NewRequestPage> {
     });
   }
 
-  void _submit() {
+  /// Evita enviar duas vezes enquanto espera a resposta da API.
+  bool _sending = false;
+
+  Future<void> _submit() async {
+    if (_sending) return;
     final user = UserController.instance.currentUser;
 
     // Segregação de funções: só o perfil Padrão solicita veículo.
@@ -153,9 +158,32 @@ class _NewRequestPageState extends State<NewRequestPage> {
       return;
     }
 
-    if (_isEditing) {
-      final reverted = RequestController.instance.updateRequest(
-        widget.request!.id,
+    if (_losesApproval && !await _confirmReapproval()) return;
+    if (!mounted) return;
+
+    setState(() => _sending = true);
+    try {
+      if (_isEditing) {
+        final reverted = await RequestController.instance.updateRequest(
+          widget.request!.id,
+          reason: reasonTravel.trim(),
+          destination: destination.trim(),
+          passengers: numberPassengers,
+          departure: departureDateTime!,
+          returnDate: returnDate!,
+          returnPeriod: returnPeriod!,
+        );
+        if (!mounted) return;
+        _showMessage(
+          reverted
+              ? 'Solicitação alterada e retornada para aprovação'
+              : 'Solicitação atualizada.',
+        );
+        Navigator.of(context).pop();
+        return;
+      }
+
+      await RequestController.instance.addRequest(
         reason: reasonTravel.trim(),
         destination: destination.trim(),
         passengers: numberPassengers,
@@ -163,37 +191,86 @@ class _NewRequestPageState extends State<NewRequestPage> {
         returnDate: returnDate!,
         returnPeriod: returnPeriod!,
       );
-      _showMessage(
-        reverted
-            ? 'Solicitação alterada e retornada para aprovação'
-            : 'Solicitação atualizada.',
-      );
-      Navigator.of(context).pop();
-      return;
+      if (!mounted) return;
+      _showMessage('Solicitação enviada com sucesso!');
+      Navigator.of(context).pushReplacementNamed('/my-requests');
+    } on ApiError catch (e) {
+      // O servidor confere tudo de novo (conflito, CNH, lotação...).
+      if (mounted) _showMessage(e.details);
+    } finally {
+      if (mounted) setState(() => _sending = false);
     }
-
-    RequestController.instance.addRequest(
-      reason: reasonTravel.trim(),
-      destination: destination.trim(),
-      passengers: numberPassengers,
-      departure: departureDateTime,
-      returnDate: returnDate,
-      returnPeriod: returnPeriod,
-    );
-
-    _showMessage('Solicitação enviada com sucesso!');
-    Navigator.of(context).pushReplacementNamed('/my-requests');
   }
 
   void _showMessage(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  /// A edição tira a aprovação? Só se já estava aprovada e mudaram datas,
+  /// período ou passageiros (motivo e destino mantêm o veículo).
+  bool get _losesApproval {
+    final r = widget.request;
+    if (r == null || r.status != RequestStatus.aprovada) return false;
+
+    bool sameDay(DateTime? a, DateTime? b) =>
+        a != null &&
+        b != null &&
+        a.year == b.year &&
+        a.month == b.month &&
+        a.day == b.day;
+    final sameDeparture =
+        r.departure != null &&
+        departureDateTime != null &&
+        r.departure!.isAtSameMomentAs(departureDateTime!);
+
+    return !sameDeparture ||
+        !sameDay(r.returnDate, returnDate) ||
+        r.returnPeriod != returnPeriod ||
+        r.passengers != numberPassengers;
+  }
+
+  /// Explica o que acontece com a solicitação e o veículo e pede confirmação.
+  Future<bool> _confirmReapproval() async {
+    final vehicle = RequestController.instance.vehicleOf(widget.request!);
+    final vehicleText = vehicle == null
+        ? 'O veículo alocado será liberado'
+        : 'O veículo ${vehicle.model} (${vehicle.plate}) será liberado';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.info_outline, color: AppColors.canceled),
+        title: const Text('Voltar para aprovação?'),
+        content: Text(
+          'Esta solicitação já foi aprovada. Ao alterar datas, período ou '
+          'passageiros:\n\n'
+          '• ela volta para "Pendente" e precisa de nova aprovação;\n'
+          '• $vehicleText e pode ser reservado por outra pessoa;\n'
+          '• um novo veículo será escolhido pelo Aprovador.\n\n'
+          'Deseja salvar mesmo assim?',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(
+              'Salvar e reenviar',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = UserController.instance.currentUser;
-    final isApprovedEdit =
-        _isEditing && widget.request!.status == RequestStatus.aprovada;
 
     return Scaffold(
       appBar: AppBar(
@@ -219,13 +296,8 @@ class _NewRequestPageState extends State<NewRequestPage> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 20),
-                        if (user.profile.canRequest &&
-                            !user.hasValidCnh) ...[
+                        if (user.profile.canRequest && !user.hasValidCnh) ...[
                           _cnhBlockedWarning(user),
-                          const SizedBox(height: 10),
-                        ],
-                        if (isApprovedEdit) ...[
-                          _approvalWarning(),
                           const SizedBox(height: 10),
                         ],
                         InputTextField(
@@ -275,7 +347,9 @@ class _NewRequestPageState extends State<NewRequestPage> {
                           child: Column(
                             children: [
                               AppButton(
-                                label: _isEditing
+                                label: _sending
+                                    ? 'Enviando...'
+                                    : _isEditing
                                     ? 'Salvar alterações'
                                     : 'Confirmar',
                                 onPressed: _submit,
@@ -327,33 +401,6 @@ class _NewRequestPageState extends State<NewRequestPage> {
             child: Text(
               message,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Aviso exibido ao editar uma solicitação já aprovada.
-  Widget _approvalWarning() {
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.8,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.canceled.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline, size: 18, color: AppColors.canceled),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Esta solicitação já foi aprovada. Alterar datas, período ou '
-              'passageiros fará ela voltar para aprovação e o veículo será '
-              'liberado.',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
         ],

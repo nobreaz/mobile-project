@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:frota_core/frota_core.dart' show formatDate;
 import 'package:project/core/components/app_button_variant.dart';
 import 'package:project/core/components/input_text_field.dart';
 import 'package:project/core/controllers/request_controller.dart';
 import 'package:project/core/controllers/vehicle_controller.dart';
 import 'package:project/core/models/request_model.dart';
 import 'package:project/core/models/vehicle_model.dart';
+import 'package:project/core/services/api_client.dart';
 import 'package:project/core/theme/app_colors.dart';
 import 'package:project/core/theme/app_text_styles.dart';
 
@@ -144,29 +146,42 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
     }
 
     if (licensingExpiry == null || insuranceExpiry == null) {
-      _showMessage(
-        'Informe o vencimento do licenciamento/IPVA e do seguro.',
-      );
+      _showMessage('Informe o vencimento do licenciamento/IPVA e do seguro.');
       return;
     }
 
-    final parsedYear = int.tryParse(year) ?? 0;
-    final parsedSeats = int.tryParse(seats) ?? 0;
-    final parsedMileage = int.tryParse(mileage) ?? 0;
+    // Número inválido vai como null: o servidor devolve a mensagem do campo.
+    final parsedYear = int.tryParse(year.trim());
+    final parsedSeats = int.tryParse(seats.trim());
+    final parsedMileage = int.tryParse(mileage.trim());
+
+    final data = <String, dynamic>{
+      'plate': plate.trim(),
+      'chassis': chassis.trim(),
+      'model': model.trim(),
+      'color': color.trim(),
+      'year': parsedYear,
+      'seats': parsedSeats,
+      'mileage': parsedMileage,
+      'type': type.name,
+      'licensingExpiry': formatDate(licensingExpiry!),
+      'insuranceExpiry': formatDate(insuranceExpiry!),
+    };
 
     if (isEditing) {
       final vehicle = widget.vehicle!;
       final bookings = RequestController.instance.activeBookingsOf(vehicle.id);
 
       final becomesUnavailable =
-          status == VehicleStatus.emManutencao ||
-          status == VehicleStatus.inativo;
+          status != vehicle.status &&
+          (status == VehicleStatus.emManutencao ||
+              status == VehicleStatus.inativo);
 
       // Carro em viagem: não pode ir para manutenção/inativo agora.
-      final inUse = bookings
-          .where((r) => r.status == RequestStatus.emUso)
-          .toList();
-      if (becomesUnavailable && inUse.isNotEmpty) {
+      final inUse =
+          vehicle.status == VehicleStatus.emUso ||
+          bookings.any((r) => r.status == RequestStatus.emUso);
+      if (status != vehicle.status && inUse) {
         _showMessage(
           'O veículo está em uso. Registre a devolução (check-in) '
           'antes de mudar o status para "${status.label}".',
@@ -180,7 +195,9 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
       );
       final toRelease = becomesUnavailable
           ? approved.toList()
-          : approved.where((r) => r.passengers > parsedSeats).toList();
+          : approved
+                .where((r) => r.passengers > (parsedSeats ?? r.passengers))
+                .toList();
 
       if (toRelease.isNotEmpty) {
         final confirmed = await _confirmRelease(
@@ -188,45 +205,40 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
           becomesUnavailable: becomesUnavailable,
         );
         if (!confirmed || !mounted) return;
-
-        RequestController.instance.releaseBookings(toRelease.map((r) => r.id));
       }
 
-      VehicleController.instance.updateVehicle(
-        vehicle.id,
-        plate: plate.trim(),
-        chassis: chassis.trim(),
-        model: model.trim(),
-        color: color.trim(),
-        year: parsedYear,
-        seats: parsedSeats,
-        mileage: parsedMileage,
-        type: type,
-        status: status,
-        licensingExpiry: licensingExpiry,
-        insuranceExpiry: insuranceExpiry,
-      );
-      _showMessage(
-        toRelease.isEmpty
-            ? 'Veículo atualizado com sucesso!'
-            : 'Veículo atualizado. ${toRelease.length} reserva(s) '
-                  'voltaram para aprovação.',
-      );
+      // "Em uso" só muda pela retirada/devolução: o status só vai se mudou.
+      if (status != vehicle.status) data['status'] = status.name;
+
+      try {
+        // Quem libera as reservas e avisa os solicitantes é o servidor.
+        final released = await VehicleController.instance.updateVehicle(
+          vehicle.id,
+          data,
+        );
+        if (!mounted) return;
+        _showMessage(
+          released == 0
+              ? 'Veículo atualizado com sucesso!'
+              : 'Veículo atualizado. $released reserva(s) '
+                    'voltaram para aprovação.',
+        );
+      } on ApiError catch (e) {
+        if (mounted) _showMessage(e.details);
+        return;
+      }
     } else {
-      VehicleController.instance.addVehicle(
-        plate: plate.trim(),
-        chassis: chassis.trim(),
-        model: model.trim(),
-        color: color.trim(),
-        year: parsedYear,
-        seats: parsedSeats,
-        mileage: parsedMileage,
-        type: type,
-        status: status,
-        licensingExpiry: licensingExpiry,
-        insuranceExpiry: insuranceExpiry,
-      );
-      _showMessage('Veículo cadastrado com sucesso!');
+      try {
+        await VehicleController.instance.addVehicle({
+          ...data,
+          'status': status.name,
+        });
+        if (!mounted) return;
+        _showMessage('Veículo cadastrado com sucesso!');
+      } on ApiError catch (e) {
+        if (mounted) _showMessage(e.details);
+        return;
+      }
     }
 
     if (!mounted) return;
@@ -311,8 +323,7 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
               inputText: _fmtFullDate(licensingExpiry),
               firstDate: DateTime(2000),
               onChanged: (_) {},
-              onDateSelected: (date) =>
-                  setState(() => licensingExpiry = date),
+              onDateSelected: (date) => setState(() => licensingExpiry = date),
             ),
             const SizedBox(height: 16),
             InputTextField(
@@ -322,8 +333,7 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
               inputText: _fmtFullDate(insuranceExpiry),
               firstDate: DateTime(2000),
               onChanged: (_) {},
-              onDateSelected: (date) =>
-                  setState(() => insuranceExpiry = date),
+              onDateSelected: (date) => setState(() => insuranceExpiry = date),
             ),
             const SizedBox(height: 20),
             _dropdown<VehicleType>(
@@ -337,7 +347,13 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
             _dropdown<VehicleStatus>(
               label: 'Status operacional',
               value: status,
-              items: VehicleStatus.values,
+              // "Em uso" vem da retirada; só aparece se já for o status atual.
+              items: [
+                for (final s in VehicleStatus.values)
+                  if (s != VehicleStatus.emUso ||
+                      widget.vehicle?.status == VehicleStatus.emUso)
+                    s,
+              ],
               labelBuilder: (s) => s.label,
               onChanged: (v) => setState(() => status = v),
             ),

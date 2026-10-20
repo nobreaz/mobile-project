@@ -119,6 +119,8 @@ class _AgendaPageState extends State<AgendaPage> {
   void initState() {
     super.initState();
     _anchor = _dateOnly(DateTime.now());
+    RequestController.instance.load();
+    VehicleController.instance.load();
 
     // Atualiza a linha do "agora" a cada minuto.
     _clock = Timer.periodic(const Duration(minutes: 1), (_) {

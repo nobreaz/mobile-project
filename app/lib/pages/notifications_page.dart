@@ -13,22 +13,29 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage> {
   /// Não lidas no momento em que a tela abriu (ficam destacadas).
-  late final Set<int> _unreadAtOpen;
+  final Set<int> _unreadAtOpen = {};
+
+  void _collectUnread(int userId) {
+    _unreadAtOpen.addAll(
+      NotificationController.instance
+          .notificationsOf(userId)
+          .where((n) => !n.read)
+          .map((n) => n.id),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     final userId = UserController.instance.currentUser.id;
-    _unreadAtOpen = NotificationController.instance
-        .notificationsOf(userId)
-        .where((n) => !n.read)
-        .map((n) => n.id)
-        .toSet();
+    _collectUnread(userId);
 
-    // Marca como lidas depois que a tela aparece.
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => NotificationController.instance.markAllRead(userId),
-    );
+    // Busca as novas no servidor e só então marca todas como lidas.
+    NotificationController.instance.load().then((_) {
+      if (!mounted) return;
+      setState(() => _collectUnread(userId));
+      NotificationController.instance.markAllRead(userId);
+    });
   }
 
   String _pad(int v) => v.toString().padLeft(2, '0');

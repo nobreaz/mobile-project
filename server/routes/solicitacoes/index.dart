@@ -1,11 +1,16 @@
+import 'dart:io';
+
 import 'package:dart_frog/dart_frog.dart';
 import 'package:frota_core/frota_core.dart';
 import 'package:frota_server/src/api_exception.dart';
+import 'package:frota_server/src/frota_service.dart';
+import 'package:frota_server/src/middleware.dart';
+import 'package:frota_server/src/request_input.dart';
 import 'package:frota_server/src/solicitacoes_repository.dart';
 
-/// `GET /solicitacoes`
+/// `/solicitacoes`
 ///
-/// Quem vê o quê (RNF 6.3):
+/// GET: lista. Quem vê o quê (RNF 6.3):
 /// - Aprovador: todas, decididas por ele ou por outro aprovador.
 /// - Administrador: todas, só leitura (agenda geral, relatórios).
 /// - Padrão: só as próprias (RF 3.3.9, histórico).
@@ -14,11 +19,36 @@ import 'package:frota_server/src/solicitacoes_repository.dart';
 /// - `status=aprovada,emUso,finalizada`: um ou mais status, separados
 ///   por vírgula (nomes de `RequestStatus`).
 /// - `aprovadorId=7`: só as decididas por esse aprovador ("só as minhas").
+///
+/// POST: nova solicitação (RF 3.3.1), só perfil Padrão com CNH válida.
+/// Corpo: `reason`, `destination`, `passengers`, `departure` (ISO 8601 com
+/// fuso), `returnDate` (`AAAA-MM-DD`) e `returnPeriod` (`manha`/`tarde`).
 Future<Response> onRequest(RequestContext context) async {
-  if (context.request.method != HttpMethod.get) {
-    throw const ApiException.methodNotAllowed();
+  switch (context.request.method) {
+    case HttpMethod.get:
+      return _list(context);
+    case HttpMethod.post:
+      final me = context.read<UserModel>();
+      checkProfile(me, {UserProfile.padrao}, 'solicitar veículos');
+      final fields = RequestFields.fromJson(
+        await readJsonObject(context),
+        partial: false,
+      );
+      final created = await context.read<FrotaService>().createRequest(
+        me,
+        fields,
+      );
+      return Response.json(
+        statusCode: HttpStatus.created,
+        body: created.toJson(),
+      );
+    // ignore: no_default_cases
+    default:
+      throw const ApiException.methodNotAllowed();
   }
+}
 
+Future<Response> _list(RequestContext context) async {
   final me = context.read<UserModel>();
   final query = context.request.uri.queryParameters;
 

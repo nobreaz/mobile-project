@@ -39,4 +39,28 @@ class AppNotification {
     required this.createdAt,
     this.read = false,
   });
+
+  /// Formato JSON trocado entre a API e o app (`createdAt` em ISO 8601 UTC).
+  factory AppNotification.fromJson(Map<String, dynamic> json) =>
+      AppNotification(
+        id: json['id'] as int,
+        userId: json['userId'] as int,
+        requestId: json['requestId'] as int,
+        type: NotificationType.values.byName(json['type'] as String),
+        destination: json['destination'] as String,
+        message: json['message'] as String,
+        createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
+        read: json['read'] as bool? ?? false,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'userId': userId,
+    'requestId': requestId,
+    'type': type.name,
+    'destination': destination,
+    'message': message,
+    'createdAt': createdAt.toUtc().toIso8601String(),
+    'read': read,
+  };
 }

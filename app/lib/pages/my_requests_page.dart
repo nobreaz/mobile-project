@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:project/core/components/request_card.dart';
 import 'package:project/core/controllers/request_controller.dart';
 import 'package:project/core/controllers/user_controller.dart';
+import 'package:project/core/controllers/vehicle_controller.dart';
+import 'package:project/core/components/load_state.dart';
 import 'package:project/core/models/request_model.dart';
+import 'package:project/core/services/feedback.dart';
 import 'package:project/core/theme/app_colors.dart';
 import 'package:project/pages/new_request_page.dart';
 
@@ -130,21 +133,15 @@ class MyRequestsPage extends StatelessWidget {
     );
     if (result == null) return;
 
-    final ok = RequestController.instance.checkOut(
-      request.id,
-      result.mileage,
-      notes: result.notes,
-    );
-
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Check-out registrado. Boa viagem!'
-              : 'Não foi possível registrar o check-out. Verifique a km.',
-        ),
+    await runWithFeedback(
+      context,
+      () => RequestController.instance.checkOut(
+        request.id,
+        result.mileage,
+        notes: result.notes,
       ),
+      success: 'Check-out registrado. Boa viagem!',
     );
   }
 
@@ -164,21 +161,15 @@ class MyRequestsPage extends StatelessWidget {
     );
     if (result == null) return;
 
-    final ok = RequestController.instance.checkIn(
-      request.id,
-      result.mileage,
-      notes: result.notes,
-    );
-
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? 'Devolução registrada. Solicitação finalizada.'
-              : 'Não foi possível registrar a devolução. Verifique a km.',
-        ),
+    await runWithFeedback(
+      context,
+      () => RequestController.instance.checkIn(
+        request.id,
+        result.mileage,
+        notes: result.notes,
       ),
+      success: 'Devolução registrada. Solicitação finalizada.',
     );
   }
 
@@ -199,47 +190,68 @@ class MyRequestsPage extends StatelessWidget {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      body: Container(
-        color: AppColors.background,
-        child: AnimatedBuilder(
-          animation: RequestController.instance,
-          builder: (context, _) {
-            // Apenas as solicitações do usuário logado.
-            final userId = UserController.instance.currentUser.id;
-            final requests = RequestController.instance.requestsOf(userId);
+      body: RefreshOnOpen(
+        loaders: [
+          RequestController.instance.load,
+          VehicleController.instance.load,
+        ],
+        child: Container(
+          color: AppColors.background,
+          child: AnimatedBuilder(
+            animation: RequestController.instance,
+            builder: (context, _) {
+              // Apenas as solicitações do usuário logado.
+              final userId = UserController.instance.currentUser.id;
+              final controller = RequestController.instance;
+              final requests = controller.requestsOf(userId);
 
-            if (requests.isEmpty) {
-              return _emptyState();
-            }
-
-            return ListView.separated(
-              padding: const EdgeInsets.all(20),
-              itemCount: requests.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 16),
-              itemBuilder: (context, index) {
-                final request = requests[index];
-
-                return RequestCard(
-                  request: request,
-                  onCancel: request.status == RequestStatus.pendente
-                      ? () =>
-                            RequestController.instance.cancelRequest(request.id)
-                      : null,
-                  onEdit: request.canEdit
-                      ? () => _edit(context, request)
-                      : null,
-                  onCheckOut: request.status == RequestStatus.aprovada
-                      ? () => _checkOut(context, request)
-                      : null,
-                  onCheckIn: request.status == RequestStatus.emUso
-                      ? () => _checkIn(context, request)
-                      : null,
+              if (requests.isEmpty) {
+                return LoadState(
+                  loading: controller.loading,
+                  error: controller.error,
+                  onRetry: controller.load,
+                  empty: _emptyState(),
                 );
-              },
-            );
-          },
+              }
+
+              return RefreshIndicator(
+                onRefresh: controller.load,
+                child: _list(context, requests),
+              );
+            },
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _list(BuildContext context, List<RequestModel> requests) {
+    return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(20),
+      itemCount: requests.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        final request = requests[index];
+
+        return RequestCard(
+          request: request,
+          onCancel: request.status == RequestStatus.pendente
+              ? () => runWithFeedback(
+                  context,
+                  () => RequestController.instance.cancelRequest(request.id),
+                  success: 'Solicitação cancelada.',
+                )
+              : null,
+          onEdit: request.canEdit ? () => _edit(context, request) : null,
+          onCheckOut: request.status == RequestStatus.aprovada
+              ? () => _checkOut(context, request)
+              : null,
+          onCheckIn: request.status == RequestStatus.emUso
+              ? () => _checkIn(context, request)
+              : null,
+        );
+      },
     );
   }
 
