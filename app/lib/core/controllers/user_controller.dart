@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:project/core/controllers/notification_controller.dart';
+import 'package:project/core/controllers/report_controller.dart';
 import 'package:project/core/controllers/request_controller.dart';
 import 'package:project/core/controllers/vehicle_controller.dart';
 import 'package:project/core/models/user_model.dart';
@@ -88,6 +89,7 @@ class UserController extends ChangeNotifier {
     VehicleController.instance.clear();
     RequestController.instance.clear();
     NotificationController.instance.clear();
+    ReportController.instance.clear();
     notifyListeners();
   }
 

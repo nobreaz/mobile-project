@@ -62,6 +62,20 @@ ExpiryStatus expiryStatusOf(DateTime? expiry, {DateTime? today}) {
   return ExpiryStatus.valido;
 }
 
+/// A partir de quantos km antes da revisão o veículo entra em alerta.
+const serviceWarningKm = 1000;
+
+/// Situação da revisão pela quilometragem: vencida (chegou ou passou da km
+/// marcada), vencendo (faltam até [serviceWarningKm]), válida ou não
+/// informada. Usa o mesmo enum dos documentos para ter as mesmas cores.
+ExpiryStatus serviceStatusOf(int mileage, int? nextServiceMileage) {
+  if (nextServiceMileage == null) return ExpiryStatus.naoInformado;
+  final remaining = nextServiceMileage - mileage;
+  if (remaining <= 0) return ExpiryStatus.vencido;
+  if (remaining <= serviceWarningKm) return ExpiryStatus.vencendo;
+  return ExpiryStatus.valido;
+}
+
 /// Representa um veículo da frota.
 /// (Entidade "Veículo" — seção 5.1 do documento de requisitos.)
 class VehicleModel {
@@ -80,6 +94,9 @@ class VehicleModel {
   DateTime? licensingExpiry;
   DateTime? insuranceExpiry;
 
+  /// Quilometragem em que a próxima revisão deve ser feita (opcional).
+  int? nextServiceMileage;
+
   VehicleModel({
     required this.id,
     required this.plate,
@@ -93,6 +110,7 @@ class VehicleModel {
     this.status = VehicleStatus.disponivel,
     this.licensingExpiry,
     this.insuranceExpiry,
+    this.nextServiceMileage,
   });
 
   /// Formato JSON trocado entre a API e o app.
@@ -116,6 +134,7 @@ class VehicleModel {
       status: VehicleStatus.values.byName(json['status'] as String),
       licensingExpiry: date('licensingExpiry'),
       insuranceExpiry: date('insuranceExpiry'),
+      nextServiceMileage: json['nextServiceMileage'] as int?,
     );
   }
 
@@ -136,8 +155,11 @@ class VehicleModel {
     'insuranceExpiry': insuranceExpiry == null
         ? null
         : formatDate(insuranceExpiry!),
+    'nextServiceMileage': nextServiceMileage,
   };
 
   ExpiryStatus get licensingStatus => expiryStatusOf(licensingExpiry);
   ExpiryStatus get insuranceStatus => expiryStatusOf(insuranceExpiry);
+  ExpiryStatus get serviceStatus =>
+      serviceStatusOf(mileage, nextServiceMileage);
 }

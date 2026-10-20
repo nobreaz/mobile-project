@@ -40,10 +40,9 @@ class HomePage extends StatelessWidget {
       onPressed: () => go('/agenda'),
     );
     final reports = HomePageAction(
-      label: 'Ver Relatórios',
+      label: 'Relatórios',
       icon: Icons.bar_chart,
-      onPressed: () {},
-      comingSoon: true,
+      onPressed: () => go('/reports'),
     );
 
     switch (profile) {

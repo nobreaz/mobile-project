@@ -5,6 +5,7 @@
 library;
 
 export 'src/notification.dart';
+export 'src/report.dart';
 export 'src/request.dart';
 export 'src/user.dart';
 export 'src/validation.dart';

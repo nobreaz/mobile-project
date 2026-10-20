@@ -4,6 +4,7 @@ import 'package:dart_frog/dart_frog.dart';
 import 'package:frota_core/frota_core.dart';
 import 'package:frota_server/src/frota_service.dart';
 import 'package:frota_server/src/notificacoes_repository.dart';
+import 'package:frota_server/src/relatorios_repository.dart';
 import 'package:frota_server/src/solicitacoes_repository.dart';
 import 'package:frota_server/src/supabase_auth.dart';
 import 'package:frota_server/src/usuarios_repository.dart';
@@ -20,6 +21,8 @@ class MockSolicitacoesRepository extends Mock
     implements SolicitacoesRepository {}
 
 class MockVeiculosRepository extends Mock implements VeiculosRepository {}
+
+class MockRelatoriosRepository extends Mock implements RelatoriosRepository {}
 
 class MockNotificacoesRepository extends Mock
     implements NotificacoesRepository {}
@@ -80,6 +83,7 @@ MockRequestContext contextFor(
   VeiculosRepository? vehicles,
   NotificacoesRepository? notifications,
   FrotaService? frota,
+  RelatoriosRepository? reports,
 }) {
   final context = MockRequestContext();
   when(() => context.request).thenReturn(request);
@@ -96,6 +100,9 @@ MockRequestContext contextFor(
     when(
       () => context.read<NotificacoesRepository>(),
     ).thenReturn(notifications);
+  }
+  if (reports != null) {
+    when(() => context.read<RelatoriosRepository>()).thenReturn(reports);
   }
   if (frota != null) when(() => context.read<FrotaService>()).thenReturn(frota);
   if (auth != null) when(() => context.read<SupabaseAuth>()).thenReturn(auth);

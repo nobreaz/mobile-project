@@ -17,6 +17,8 @@ import 'package:frota_server/src/api_exception.dart';
 import 'package:frota_server/src/config.dart';
 import 'package:frota_server/src/frota_service.dart';
 import 'package:frota_server/src/notificacoes_repository.dart';
+import 'package:frota_server/src/relatorios.dart';
+import 'package:frota_server/src/relatorios_repository.dart';
 import 'package:frota_server/src/request_input.dart';
 import 'package:frota_server/src/solicitacoes_repository.dart';
 import 'package:frota_server/src/usuarios_repository.dart';
@@ -408,5 +410,56 @@ void main() {
         ),
       ),
     );
+  });
+
+  scenario('relatório: viagem devolvida atrasada entra nos rankings', (
+    w,
+  ) async {
+    // Viagem de 5 dias atrás (gravada direto: o serviço não aceita saída
+    // no passado), devolvida no dia seguinte, depois do prazo.
+    await w.tx.execute(
+      Sql.named('''
+        INSERT INTO solicitacoes (
+          solicitante_id, motivo, destino, passageiros, saida, data_retorno,
+          periodo_retorno, prazo_retorno, status, veiculo_id, km_saida,
+          km_retorno, check_out_em, check_in_em, aprovador_id, decidido_em,
+          criado_em
+        ) VALUES (
+          @ana, 'Visita', ' macaé ', 1, now() - interval '5 days',
+          (now() - interval '5 days')::date, 'tarde',
+          now() - interval '5 days' + interval '8 hours', 'finalizada', @gol,
+          3000, 3120, now() - interval '5 days', now() - interval '4 days',
+          @bruno, now() - interval '6 days', now() - interval '7 days'
+        )'''),
+      parameters: {'ana': w.ana.id, 'gol': w.gol.id, 'bruno': w.bruno.id},
+    );
+    // Revisão a 500 km: alerta "vencendo".
+    await w.vehicles.update(w.van.id, {'proxima_revisao_km': 5500});
+
+    final report = await buildFleetReport(
+      reports: RelatoriosRepository(w.tx),
+      vehicles: w.vehicles,
+      users: w.users,
+      days: 30,
+    );
+
+    final ana = report.users.firstWhere((u) => u.id == w.ana.id);
+    expect((ana.trips, ana.km, ana.lateReturns), (1, 120, 1));
+    final gol = report.vehicles.firstWhere((v) => v.id == w.gol.id);
+    expect((gol.trips, gol.km), (1, 120));
+    // Veículo sem viagem aparece no fim (ocioso).
+    expect(report.vehicles.any((v) => v.id == w.uno.id && v.trips == 0), true);
+    expect(report.trend.fold(0, (sum, t) => sum + t.trips), report.trips);
+    expect(report.lateReturns, greaterThanOrEqualTo(1));
+    final bruno = report.approvers.firstWhere((a) => a.id == w.bruno.id);
+    expect((bruno.approved, bruno.rejected), (1, 0));
+    expect(
+      report.alerts.where(
+        (a) => a.kind == AlertKind.revisao && a.title.contains('TST9A01'),
+      ),
+      hasLength(1),
+    );
+    // Ida e volta pelo JSON da rota.
+    expect(FleetReport.fromJson(report.toJson()).toJson(), report.toJson());
   });
 }

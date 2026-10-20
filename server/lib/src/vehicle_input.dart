@@ -43,6 +43,10 @@ VehicleModel parseNewVehicle(Map<String, dynamic> json) {
       'Vencimento do licenciamento',
     ),
     insuranceExpiry: r.requiredDate('insuranceExpiry', 'Vencimento do seguro'),
+    nextServiceMileage: r.optionalInteger(
+      'nextServiceMileage',
+      'Km da próxima revisão',
+    ),
   );
 
   r.throwIfInvalid();
@@ -92,6 +96,12 @@ Map<String, Object?> parseVehicleUpdate(Map<String, dynamic> json) {
     changes['vencimento_seguro'] = r.requiredDate(
       'insuranceExpiry',
       'Vencimento do seguro',
+    );
+  }
+  if (r.has('nextServiceMileage')) {
+    changes['proxima_revisao_km'] = r.optionalInteger(
+      'nextServiceMileage',
+      'Km da próxima revisão',
     );
   }
   r.throwIfInvalid();

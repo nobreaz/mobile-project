@@ -12,7 +12,7 @@ class VeiculosRepository {
   static const _columns = '''
     v.id, v.placa, v.chassi, v.modelo, v.cor, v.ano, v.lugares,
     v.quilometragem, v.tipo::text AS tipo, v.status::text AS status,
-    v.vencimento_licenciamento, v.vencimento_seguro''';
+    v.vencimento_licenciamento, v.vencimento_seguro, v.proxima_revisao_km''';
 
   /// Colunas que podem ser alteradas por [update], com o tipo SQL de cada uma.
   static const editableColumns = {
@@ -27,6 +27,7 @@ class VeiculosRepository {
     'status': 'status_veiculo',
     'vencimento_licenciamento': 'date',
     'vencimento_seguro': 'date',
+    'proxima_revisao_km': 'int',
   };
 
   /// [forUpdate] trava a linha até o fim da transação (usar dentro de
@@ -96,11 +97,12 @@ class VeiculosRepository {
       '''
       INSERT INTO veiculos AS v (
         placa, chassi, modelo, cor, ano, lugares, quilometragem,
-        tipo, status, vencimento_licenciamento, vencimento_seguro
+        tipo, status, vencimento_licenciamento, vencimento_seguro,
+        proxima_revisao_km
       ) VALUES (
         @placa, @chassi, @modelo, @cor, @ano, @lugares, @quilometragem,
         @tipo::tipo_veiculo, @status::status_veiculo,
-        @licenciamento::date, @seguro::date
+        @licenciamento::date, @seguro::date, @revisao::int
       )
       RETURNING $_columns''',
       {
@@ -115,6 +117,7 @@ class VeiculosRepository {
         'status': v.status.name,
         'licenciamento': formatDate(v.licensingExpiry!),
         'seguro': formatDate(v.insuranceExpiry!),
+        'revisao': v.nextServiceMileage,
       },
     );
     return created!;
@@ -173,6 +176,7 @@ class VeiculosRepository {
       status: VehicleStatus.values.byName(m['status'] as String),
       licensingExpiry: day('vencimento_licenciamento'),
       insuranceExpiry: day('vencimento_seguro'),
+      nextServiceMileage: m['proxima_revisao_km'] as int?,
     );
   }
 }

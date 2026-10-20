@@ -1,6 +1,7 @@
 import 'package:frota_server/src/config.dart';
 import 'package:frota_server/src/frota_service.dart';
 import 'package:frota_server/src/notificacoes_repository.dart';
+import 'package:frota_server/src/relatorios_repository.dart';
 import 'package:frota_server/src/solicitacoes_repository.dart';
 import 'package:frota_server/src/supabase_auth.dart';
 import 'package:frota_server/src/usuarios_repository.dart';
@@ -39,6 +40,8 @@ class Services {
   late final veiculos = VeiculosRepository(db);
 
   late final notificacoes = NotificacoesRepository(db);
+
+  late final relatorios = RelatoriosRepository(db);
 
   /// Regras de solicitações e veículos (cada operação numa transação).
   late final frota = FrotaService(db);

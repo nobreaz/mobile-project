@@ -26,6 +26,7 @@ Aplique **cada arquivo de `migrations/`, um por vez, em ordem de data**. Há tr�
 | `20261019120000_esquema_inicial.sql` | Tabelas, tipos e regras 4.3, 4.4, 4.7 e 4.8 |
 | `20261019180000_perfil_administrador.sql` | Perfil Administrador |
 | `20261019190000_decisao_solicitacao.sql` | Quem aprovou ou recusou e quando (`aprovador_id`, `decidido_em`) |
+| `20261020120000_proxima_revisao.sql` | Km da próxima revisão do veículo (alertas dos Relatórios) |
 
 ### 3. Ajustar o login
 Em **Authentication → Sign In / Providers**:

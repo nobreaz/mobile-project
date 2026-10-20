@@ -29,6 +29,7 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
   late String year;
   late String seats;
   late String mileage;
+  late String nextService;
   late VehicleType type;
   late VehicleStatus status;
   DateTime? licensingExpiry;
@@ -47,6 +48,7 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
     year = v?.year.toString() ?? '';
     seats = v?.seats.toString() ?? '';
     mileage = v?.mileage.toString() ?? '';
+    nextService = v?.nextServiceMileage?.toString() ?? '';
     type = v?.type ?? VehicleType.passeio;
     status = v?.status ?? VehicleStatus.disponivel;
     licensingExpiry = v?.licensingExpiry;
@@ -155,6 +157,14 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
     final parsedSeats = int.tryParse(seats.trim());
     final parsedMileage = int.tryParse(mileage.trim());
 
+    // Revisão é opcional: vazio apaga; texto inválido é avisado aqui
+    // (senão viraria null e apagaria o valor sem querer).
+    final parsedNextService = int.tryParse(nextService.trim());
+    if (nextService.trim().isNotEmpty && parsedNextService == null) {
+      _showMessage('Km da próxima revisão deve ser um número.');
+      return;
+    }
+
     final data = <String, dynamic>{
       'plate': plate.trim(),
       'chassis': chassis.trim(),
@@ -163,6 +173,7 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
       'year': parsedYear,
       'seats': parsedSeats,
       'mileage': parsedMileage,
+      'nextServiceMileage': parsedNextService,
       'type': type.name,
       'licensingExpiry': formatDate(licensingExpiry!),
       'insuranceExpiry': formatDate(insuranceExpiry!),
@@ -313,6 +324,15 @@ class _VehicleFormPageState extends State<VehicleFormPage> {
               hint: 'Ex.: 42500',
               inputText: mileage,
               onChanged: (text) => mileage = text,
+            ),
+            const SizedBox(height: 16),
+            // Alerta nos Relatórios quando faltarem até 1.000 km.
+            InputTextField(
+              label: 'Km da próxima revisão (opcional)',
+              type: InputFieldType.number,
+              hint: 'Ex.: 50000',
+              inputText: nextService,
+              onChanged: (text) => nextService = text,
             ),
             const SizedBox(height: 16),
             // Datas passadas são aceitas: o documento pode já estar vencido.

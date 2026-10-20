@@ -10,6 +10,7 @@ import 'package:project/pages/my_requests_page.dart';
 import 'package:project/pages/new_request_page.dart';
 import 'package:project/pages/notifications_page.dart';
 import 'package:project/pages/pending_requests_page.dart';
+import 'package:project/pages/reports_page.dart';
 import 'package:project/pages/reset_password_page.dart';
 import 'package:project/pages/settings_page.dart';
 import 'package:project/pages/users_page.dart';
@@ -66,5 +67,6 @@ class AppWidget extends StatelessWidget {
     '/change-password': (context) => const ChangePasswordPage(),
     '/notifications': (context) => const NotificationsPage(),
     '/my-data': (context) => const MyDataPage(),
+    '/reports': (context) => const ReportsPage(),
   };
 }

@@ -222,4 +222,109 @@ void main() {
     );
     expect(AppNotification.fromJson(n.toJson()).toJson(), n.toJson());
   });
+
+  group('Relatórios', () {
+    final today = DateTime(2026, 10, 20);
+    VehicleModel car({
+      VehicleStatus status = VehicleStatus.disponivel,
+      int? nextService,
+      DateTime? licensing,
+    }) => VehicleModel(
+      id: 1,
+      plate: 'ABC1D23',
+      chassis: '9BW',
+      model: 'Gol',
+      color: 'Branco',
+      year: 2022,
+      seats: 5,
+      mileage: 10000,
+      status: status,
+      licensingExpiry: licensing ?? DateTime(2027, 3, 31),
+      insuranceExpiry: DateTime(2026, 11, 2),
+      nextServiceMileage: nextService,
+    );
+
+    test('revisão: vencida, vencendo (até 1.000 km), válida', () {
+      expect(serviceStatusOf(10000, null), ExpiryStatus.naoInformado);
+      expect(serviceStatusOf(10000, 10000), ExpiryStatus.vencido);
+      expect(serviceStatusOf(10000, 11000), ExpiryStatus.vencendo);
+      expect(serviceStatusOf(10000, 11001), ExpiryStatus.valido);
+    });
+
+    test('alertas do veículo: documentos, revisão e manutenção', () {
+      final alerts = vehicleAlerts(
+        car(
+          status: VehicleStatus.emManutencao,
+          nextService: 9500,
+          licensing: DateTime(2026, 10, 1),
+        ),
+        today: today,
+      );
+      expect(alerts.map((a) => (a.kind, a.critical)), [
+        (AlertKind.licenciamento, true),
+        (AlertKind.seguro, false),
+        (AlertKind.revisao, true),
+        (AlertKind.manutencao, false),
+      ]);
+      expect(alerts[1].message, 'Seguro vence em 02/11/2026');
+    });
+
+    test('veículo inativo não gera alerta', () {
+      expect(
+        vehicleAlerts(car(status: VehicleStatus.inativo), today: today),
+        isEmpty,
+      );
+    });
+
+    test('CNH: só de quem solicita (Padrão ativo)', () {
+      UserModel u(UserProfile p, {bool active = true}) => UserModel(
+        id: 1,
+        name: 'Ana',
+        email: 'a@b.com',
+        role: 'r',
+        department: 'd',
+        profile: p,
+        active: active,
+      );
+      expect(driverAlert(u(UserProfile.padrao))?.kind, AlertKind.cnh);
+      expect(driverAlert(u(UserProfile.aprovador)), isNull);
+      expect(driverAlert(u(UserProfile.padrao, active: false)), isNull);
+    });
+
+    test('FleetReport vai e volta em JSON e calcula as taxas', () {
+      final report = FleetReport(
+        days: 30,
+        granularity: TrendGranularity.week,
+        trips: 4,
+        finishedTrips: 4,
+        lateReturns: 1,
+        requests: 6,
+        statuses: {
+          RequestStatus.finalizada: 4,
+          RequestStatus.recusada: 1,
+          RequestStatus.pendente: 1,
+        },
+        trend: [TrendPoint(start: DateTime(2026, 10, 12), trips: 4)],
+        users: const [
+          RankingEntry(id: 3, label: 'Ana', detail: 'TI', trips: 4, km: 520),
+        ],
+        vehicles: const [RankingEntry(id: 1, label: 'Gol', trips: 0)],
+        departments: const [RankingEntry(label: 'TI', trips: 4, km: 520)],
+        approvers: const [
+          ApproverStats(id: 2, name: 'Bruno', approved: 4, rejected: 1),
+        ],
+        alerts: vehicleAlerts(car(), today: today),
+      );
+
+      final json = report.toJson();
+      expect(FleetReport.fromJson(json).toJson(), json);
+      expect(report.approvalRate, 0.8);
+      expect(report.onTimeRate, 0.75);
+      expect(report.periodLabel, '30 dias');
+      expect(
+        FleetReport.fromJson({...json, 'days': 365}).periodLabel,
+        '12 meses',
+      );
+    });
+  });
 }

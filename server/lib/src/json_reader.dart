@@ -95,6 +95,10 @@ class JsonReader {
     return number;
   }
 
+  /// Inteiro opcional: ausente ou `null` vira `null` (apaga o valor).
+  int? optionalInteger(String key, String label, {int min = 0, int? max}) =>
+      json[key] == null ? null : integer(key, label, min: min, max: max);
+
   /// Um dos valores de um enum do frota_core, pelo nome (`name`).
   T? choice<T extends Enum>(String key, List<T> values, String label) {
     final value = json[key];

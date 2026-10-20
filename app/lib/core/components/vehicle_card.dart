@@ -118,6 +118,10 @@ class VehicleCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           _expiry('Seguro', vehicle.insuranceExpiry, vehicle.insuranceStatus),
+          if (vehicle.nextServiceMileage != null) ...[
+            const SizedBox(height: 4),
+            _service(),
+          ],
           if (onEdit != null || onToggleActive != null) ...[
             const Divider(height: 24),
             Row(
@@ -181,6 +185,33 @@ class VehicleCard extends StatelessWidget {
         Expanded(
           child: Text(
             '$label: ${_fmtDate(date)}$suffix',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: status == ExpiryStatus.valido ? null : status.color,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Revisão pela km: mesmas cores dos vencimentos.
+  Widget _service() {
+    final status = vehicle.serviceStatus;
+    final remaining = vehicle.nextServiceMileage! - vehicle.mileage;
+    final suffix = switch (status) {
+      ExpiryStatus.vencido => ' · atrasada',
+      ExpiryStatus.vencendo => ' · faltam $remaining km',
+      _ => '',
+    };
+    return Row(
+      children: [
+        Icon(Icons.build_outlined, size: 14, color: status.color),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            'Revisão: aos ${vehicle.nextServiceMileage} km$suffix',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
